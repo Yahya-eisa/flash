@@ -815,7 +815,7 @@ elif page == "🎯 تقرير الاعلانات":
             key="products"
         )
 
-        if campaignsfiles and productsfiles and st.button("🚀 ابدأ المعالجة", type="primary"):
+    if campaignsfiles and productsfiles and st.button("🚀 ابدأ المعالجة", type="primary"):
     from difflib import SequenceMatcher
     
     allcampaigns = []
@@ -1100,6 +1100,7 @@ elif page == "🎯 تقرير الاعلانات":
         if st.button("🔄 البدء من جديد"):
             st.session_state.clear()
             st.rerun()
+
 
 
 
