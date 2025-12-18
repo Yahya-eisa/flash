@@ -13,6 +13,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase import pdfmetrics
 import pytz
 import re
+from difflib import SequenceMatcher
 
 # ---------- Arabic helpers ----------
 def fix_arabic(text):
@@ -31,7 +32,6 @@ def clean_and_fill_data(df):
     """تنظيف البيانات وملء الفراغات بشكل صحيح"""
     df = df.copy()
     
-    # ملء الفراغات بـ forward fill ثم backward fill
     if 'كود الاوردر' in df.columns:
         df['كود الاوردر'] = df['كود الاوردر'].ffill().bfill()
     if 'اسم العميل' in df.columns:
@@ -43,12 +43,10 @@ def clean_and_fill_data(df):
     if 'المدينة' in df.columns:
         df['المدينة'] = df['المدينة'].ffill().bfill()
     
-    # إزالة الصفوف الفارغة الكاملة
     base_cols = [c for c in ['كود الاوردر', 'اسم الصنف'] if c in df.columns]
     if base_cols:
         df = df.dropna(subset=base_cols, how='all')
     
-    # إزالة الصفوف اللي ما فيها منتج (product rows)
     if 'اسم الصنف' in df.columns:
         df = df[df['اسم الصنف'].notna() & (df['اسم الصنف'].astype(str).str.strip() != '')]
     
@@ -101,7 +99,6 @@ def classify_city(city):
             return area
     return "Other City"
 
-# ---------- PDF table builder ----------
 def df_to_pdf_table(df, title="FLASH"):
     if "اجمالي عدد القطع في الطلب" in df.columns:
         df = df.rename(columns={"اجمالي عدد القطع في الطلب": "عدد القطع"})
@@ -168,12 +165,10 @@ def df_to_pdf_table(df, title="FLASH"):
     elements.append(PageBreak())
     return elements
 
-# ========= دوال مساعدة لحملات الإعلانات =========
-
 NO_RESULT_LABEL = "لا توجد نتائج"
 
 def normalize_campaign_name(name):
-    """تنظيف اسم الحملة (إزالة تواريخ، Copy، فراغات، علامات غريبة)"""
+    """تنظيف اسم الحملة"""
     name = str(name)
     name = name.replace('‎', '').replace('‏', '')
     name = re.sub(r'\s+\d{1,2}[-/]\d{1,2}.*$', '', name)
@@ -186,12 +181,6 @@ def normalize_campaign_name(name):
     return name.strip()
 
 def extract_campaign_data(df, file_name):
-    """
-    استخراج:
-    - campaign_name_raw
-    - campaign_name (normalized)
-    - cost (من Amount spent أو Cost)
-    """
     campaign_col = None
     for col in df.columns:
         col_lower = str(col).lower()
@@ -232,7 +221,6 @@ def extract_campaign_data(df, file_name):
     st.success(f"✅ {file_name} | اسم الحملة: {campaign_col} | الصرف من: {cost_col}")
     return out
 
-# ---------- Streamlit App ----------
 st.set_page_config(page_title="🔥 FLASH Orders System", layout="wide")
 st.title("🔥 FLASH Orders System")
 
@@ -260,7 +248,7 @@ page = st.sidebar.radio(
     ]
 )
 
-# ==================== الصفحة الأولى: مراجعة الأوردرات المكررة ====================
+# ==================== الصفحة الأولى ====================
 if page == "🔍 مراجعة الأوردرات المكررة":
     st.header("🔍 مراجعة الأوردرات المكررة")
     st.markdown("ارفع الملف علشان تطلع الاوردرات المكررة 🔥")
@@ -327,7 +315,7 @@ if page == "🔍 مراجعة الأوردرات المكررة":
             st.error("❌ مش لاقي عمود كود الأوردر أو رقم التليفون في الملف!")
             st.info(f"الأعمدة الموجودة: {', '.join(df.columns.tolist())}")
 
-# ==================== الصفحة الثانية: المشتريات المجمعة ====================
+# ==================== الصفحة الثانية ====================
 elif page == "📦 المشتريات المجمعة":
     st.header("📦 المشتريات المجمعة")
     st.markdown("ارفع الملف وخد المشتريات على طول 🔥")
@@ -407,7 +395,7 @@ elif page == "📦 المشتريات المجمعة":
             else:
                 st.error("❌ مش لاقي أعمدة المنتج أو الكمية في الملف!")
 
-# ==================== الصفحة الثالثة: Flash Orders Processor ====================
+# ==================== الصفحة الثالثة ====================
 elif page == "🚚 Flash Orders Processor":
     st.header("🚚 Flash Orders Processor")
     st.markdown("....ارفع الملفات يا رايق علشان تستلم الشيت")
@@ -482,7 +470,7 @@ elif page == "🚚 Flash Orders Processor":
                 mime="application/pdf"
             )
 
-# ==================== الصفحة الرابعة: عدد الأوردرات لكل منتج ====================
+# ==================== الصفحة الرابعة ====================
 elif page == "📊 عدد الأوردرات لكل منتج":
     st.header("📊 عدد الأوردرات لكل منتج")
     st.markdown("ارفع الملف علشان تعرف كل منتج متكرر في كام اوردر 🔥")
@@ -558,7 +546,7 @@ elif page == "📊 عدد الأوردرات لكل منتج":
                 st.error("❌ مش لاقي عمود المنتج أو رقم الأوردر في الملف!")
                 st.info(f"الأعمدة الموجودة: {', '.join(merged_df.columns.tolist())}")
 
-# ==================== الصفحة الخامسة: تقرير المنتجات (إجمالي + تم التسليم + مرتجع) ====================
+# ==================== الصفحة الخامسة ====================
 elif page == "📋 تقرير المنتجات (إجمالي + مرتجع)":
     st.header("📋 تقرير المنتجات (إجمالي عدد الأوردرات + تم التسليم + المرتجع)")
     st.markdown("ارفع الملف علشان تشوف لكل منتج: إجمالي عدد الأوردرات، عدد أوردرات تم التسليم، وعدد أوردرات المرتجع (بدون المعلق/تم التأكيد/ملغي قبل الشحن) 🔥")
@@ -598,7 +586,6 @@ elif page == "📋 تقرير المنتجات (إجمالي + مرتجع)":
                 df_clean[product_col] = df_clean[product_col].astype(str).str.strip()
                 df_clean[status_col] = df_clean[status_col].astype(str).str.strip()
                 
-                # هنا أهم تعديل: دمج نفس المنتج في نفس الأوردر كصف واحد
                 df_clean = df_clean.drop_duplicates(subset=[order_col, product_col, status_col])
                 
                 states_to_exclude = ['تم التأكيد', 'معلق', 'ملغي قبل الشحن']
@@ -664,10 +651,10 @@ elif page == "📋 تقرير المنتجات (إجمالي + مرتجع)":
                 with col4:
                     st.metric("نسبة المرتجع من الإجمالي", f"{return_rate}%")
             else:
-                st.error("❌ مش لاقي الأعمدة المطلوبة في الملف (اسم المنتج / كود الأوردر / حالة الأوردر)!")
+                st.error("❌ مش لاقي الأعمدة المطلوبة في الملف!")
                 st.info(f"الأعمدة الموجودة: {', '.join(merged_df.columns.tolist())}")
 
-# ==================== الصفحة السادسة: إجمالي نسب الأوردرات ====================
+# ==================== الصفحة السادسة ====================
 elif page == "👥 إجمالي نسب الأوردرات":
     st.header("👥 إجمالي نسب الأوردرات")
     st.markdown("ارفع الملف علشان تشوف كل موظف: إجمالي، تم التسليم، تم التأكيد، ملغي 🔥")
@@ -782,21 +769,10 @@ elif page == "👥 إجمالي نسب الأوردرات":
                 st.error("❌ مش لاقي الأعمدة المطلوبة في الملف!")
                 st.info(f"الأعمدة الموجودة: {', '.join(merged_df.columns.tolist())}")
 
-# ==================== الصفحة السابعة: ربط الحملات بالمنتجات ====================
+# ==================== الصفحة السابعة ====================
 elif page == "🎯 تقرير الاعلانات":
     st.header("🎯 تقرير الاعلانات")
     st.markdown("---")
-
-    if 'campaigns_df' not in st.session_state:
-        st.session_state.campaigns_df = None
-    if 'products_df' not in st.session_state:
-        st.session_state.products_df = None
-    if 'grouped_campaigns' not in st.session_state:
-        st.session_state.grouped_campaigns = None
-    if 'manual_mapping' not in st.session_state:
-        st.session_state.manual_mapping = {}
-    if 'current_step' not in st.session_state:
-        st.session_state.current_step = 'upload'
 
     if st.session_state.current_step == 'upload':
         st.subheader("📁 رفع ملفات الإعلانات (Facebook, TikTok, ...)")
@@ -815,136 +791,124 @@ elif page == "🎯 تقرير الاعلانات":
             key="products"
         )
 
-    if campaigns_files and products_files and st.button("🚀 ابدأ المعالجة", type="primary"):    
-    allcampaigns = []
-    for f in campaignsfiles:
-        df = pd.read_excel(f)
-        extracted = extract_campaign_data(df, f.name)
-        if extracted is not None:
-            allcampaigns.append(extracted)
-    if not allcampaigns:
-        st.stop()
-    campaigns_df = pd.concat(allcampaigns, ignore_index=True)
+        if campaigns_files and products_files and st.button("🚀 ابدأ المعالجة", type="primary"):
+            all_campaigns = []
+            for f in campaigns_files:
+                df = pd.read_excel(f)
+                extracted = extract_campaign_data(df, f.name)
+                if extracted is not None:
+                    all_campaigns.append(extracted)
+            if not all_campaigns:
+                st.stop()
+            campaigns_df = pd.concat(all_campaigns, ignore_index=True)
 
-    allproducts = []
-    for f in productsfiles:
-        dfp = pd.read_excel(f)
-        name_col = None
-        for col in dfp.columns:
-            col_lower = str(col).lower()
-            if any(k in col_lower for k in ['اسم', 'منتج', 'product', 'name', 'item']):
-                name_col = col
-                break
-        if name_col is None:
-            st.error(f"❌ ملف منتجات {f.name} لا يحتوي على عمود اسم المنتج.")
-        else:
-            dfp = dfp.rename(columns={name_col: 'اسم المنتج'})
-            allproducts.append(dfp)
-    if not allproducts:
-        st.stop()
-    products_df = pd.concat(allproducts, ignore_index=True)
+            all_products = []
+            for f in products_files:
+                dfp = pd.read_excel(f)
+                name_col = None
+                for col in dfp.columns:
+                    col_lower = str(col).lower()
+                    if any(k in col_lower for k in ['اسم', 'منتج', 'product', 'name', 'item']):
+                        name_col = col
+                        break
+                if name_col is None:
+                    st.error(f"❌ ملف منتجات {f.name} لا يحتوي على عمود اسم المنتج.")
+                else:
+                    dfp = dfp.rename(columns={name_col: 'اسم المنتج'})
+                    all_products.append(dfp)
+            if not all_products:
+                st.stop()
+            products_df = pd.concat(all_products, ignore_index=True)
 
-    grouped_campaigns = campaigns_df.groupby('campaign_name').agg({
-        'cost': 'sum',
-        'campaign_name_raw': lambda x: list(x.unique()),
-        'source_file': lambda x: ', '.join(x.unique()),
-        'campaign_name': 'count'
-    }).rename(columns={'campaign_name': 'ads_count'}).reset_index()
+            grouped_campaigns = campaigns_df.groupby('campaign_name').agg({
+                'cost': 'sum',
+                'campaign_name_raw': lambda x: list(x.unique()),
+                'source_file': lambda x: ', '.join(x.unique()),
+                'campaign_name': 'count'
+            }).rename(columns={'campaign_name': 'ads_count'}).reset_index()
 
-    grouped_campaigns = grouped_campaigns[['campaign_name', 'cost', 'ads_count', 'campaign_name_raw', 'source_file']]
-    grouped_campaigns = grouped_campaigns.sort_values('cost', ascending=False)
+            grouped_campaigns = grouped_campaigns[['campaign_name', 'cost', 'ads_count', 'campaign_name_raw', 'source_file']]
+            grouped_campaigns = grouped_campaigns.sort_values('cost', ascending=False)
 
-    # ========== الربط الأوتوماتيكي بناءً على التشابه ==========
-    products_list = products_df['اسم المنتج'].astype(str).unique().tolist()
-    auto_mapping = {}
-    similarity_threshold = 0.75  # نسبة التشابه المطلوبة (75%)
-    
-    for _, row in grouped_campaigns.iterrows():
-        campaign_name = row['campaign_name']
-        best_match = None
-        best_score = 0
-        
-        for product in products_list:
-            # حساب نسبة التشابه بين اسم الحملة واسم المنتج
-            similarity = SequenceMatcher(None, campaign_name.lower(), product.lower()).ratio()
-            if similarity > best_score:
-                best_score = similarity
-                best_match = product
-        
-        # لو التشابه أكبر من 75%، اربطهم أوتوماتيك
-        if best_score >= similarity_threshold:
-            auto_mapping[campaign_name] = [best_match]
-            st.success(f"✅ تم الربط الأوتوماتيكي: '{campaign_name}' ← '{best_match}' (تشابه: {best_score*100:.1f}%)")
-        else:
-            # لو التشابه ضعيف، خليها للمراجعة اليدوية
-            auto_mapping[campaign_name] = []
-    
-    st.session_state.campaigns_df = campaigns_df
-    st.session_state.products_df = products_df
-    st.session_state.grouped_campaigns = grouped_campaigns
-    st.session_state.manual_mapping = auto_mapping  # حفظ الربط الأوتوماتيكي
-    st.session_state.current_step = 'manual_match'
-    st.rerun()
-           
+            products_list = products_df['اسم المنتج'].astype(str).unique().tolist()
+            auto_mapping = {}
+            similarity_threshold = 0.75
+            
+            for _, row in grouped_campaigns.iterrows():
+                campaign_name = row['campaign_name']
+                best_match = None
+                best_score = 0
+                
+                for product in products_list:
+                    similarity = SequenceMatcher(None, campaign_name.lower(), product.lower()).ratio()
+                    if similarity > best_score:
+                        best_score = similarity
+                        best_match = product
+                
+                if best_score >= similarity_threshold:
+                    auto_mapping[campaign_name] = [best_match]
+                    st.success(f"✅ ربط أوتوماتيكي: '{campaign_name}' ← '{best_match}' ({best_score*100:.1f}%)")
+                else:
+                    auto_mapping[campaign_name] = []
+            
+            st.session_state.campaigns_df = campaigns_df
+            st.session_state.products_df = products_df
+            st.session_state.grouped_campaigns = grouped_campaigns
+            st.session_state.manual_mapping = auto_mapping
+            st.session_state.current_step = 'manual_match'
+            st.rerun()
 
     elif st.session_state.current_step == 'manual_match':
-        st.subheader("🔍 مطابقة الحملات مع المنتجات (يدويًا)")
+        st.subheader("🔍 مطابقة الحملات مع المنتجات")
 
         grouped = st.session_state.grouped_campaigns.copy()
         products_df = st.session_state.products_df
         products_list = products_df['اسم المنتج'].astype(str).tolist()
 
-        st.info("لكل حملة: اختر منتج واحد أو أكثر، أو اختر 'لا توجد نتائج' لو الحملة عامة / بدون منتج.")
-
-       # فلترة الحملات اللي محتاجة مراجعة يدوية فقط
         campaigns_need_review = grouped[grouped['campaign_name'].apply(
             lambda x: len(st.session_state.manual_mapping.get(x, [])) == 0
         )]
         
         if campaigns_need_review.empty:
             st.success("🎉 تم ربط كل الحملات أوتوماتيكياً! لا توجد حملات تحتاج مراجعة يدوية.")
-            st.session_state.current_step = 'final'
-            st.rerun()
+            if st.button("📊 عرض التقرير النهائي", type="primary"):
+                st.session_state.current_step = 'final'
+                st.rerun()
         else:
             st.info(f"📋 عدد الحملات المربوطة أوتوماتيكياً: {len(grouped) - len(campaigns_need_review)}")
             st.warning(f"⚠️ عدد الحملات تحتاج مراجعة يدوية: {len(campaigns_need_review)}")
             
             with st.form("manual_match_form"):
                 for idx, (i, row) in enumerate(campaigns_need_review.iterrows(), 1):
+                    st.markdown(f"### {idx}. اسم الحملة:")
+                    st.code(row['campaign_name'])
+                    st.write(f"💰 الصرف: {row['cost']:.2f} | 📊 إعلانات: {row['ads_count']}")
 
-                st.markdown(f"### {idx}. اسم الحملة (بعد التنظيف):")
-                st.code(row['campaign_name'])
-                st.write(
-                    f"💰 إجمالي الصرف: {row['cost']:.2f} | "
-                    f"📊 عدد الإعلانات داخل هذه المجموعة: {row['ads_count']} | "
-                    f"📁 من الملفات: {row['source_file']}"
-                )
+                    col1, col2 = st.columns([2, 1])
+                    with col1:
+                        selected_products = st.multiselect(
+                            "اختر المنتجات:",
+                            options=products_list,
+                            key=f"products_{i}"
+                        )
+                    with col2:
+                        no_result = st.checkbox(
+                            "حملة عامة",
+                            key=f"nores_{i}"
+                        )
 
-                col1, col2 = st.columns([2, 1])
-                with col1:
-                    selected_products = st.multiselect(
-                        "اختر كل المنتجات المرتبطة بهذه الحملة:",
-                        options=products_list,
-                        key=f"products_{i}"
-                    )
-                with col2:
-                    no_result = st.checkbox(
-                        "هذه الحملة عامة (لا توجد نتائج / لا منتج ثابت)",
-                        key=f"nores_{i}"
-                    )
+                    if no_result:
+                        st.session_state.manual_mapping[row['campaign_name']] = [NO_RESULT_LABEL]
+                    else:
+                        st.session_state.manual_mapping[row['campaign_name']] = selected_products
 
-                if no_result:
-                    st.session_state.manual_mapping[row['campaign_name']] = [NO_RESULT_LABEL]
-                else:
-                    st.session_state.manual_mapping[row['campaign_name']] = selected_products
+                    st.markdown("---")
 
-                st.markdown("---")
+                submitted = st.form_submit_button("✅ تأكيد", type="primary")
 
-            submitted = st.form_submit_button("✅ تأكيد وحساب التقرير النهائي", type="primary")
-
-        if submitted:
-            st.session_state.current_step = 'final'
-            st.rerun()
+            if submitted:
+                st.session_state.current_step = 'final'
+                st.rerun()
 
     elif st.session_state.current_step == 'final':
         st.subheader("📊 التقرير النهائي")
@@ -968,7 +932,6 @@ elif page == "🎯 تقرير الاعلانات":
             return " | ".join(unique)
 
         grouped['أسماء المنتجات'] = grouped['قائمة المنتجات'].apply(products_list_to_str)
-
         grouped['cost'] = grouped['cost'].round(2)
 
         final_campaigns = grouped[['campaign_name', 'ads_count', 'أسماء المنتجات', 'cost', 'source_file']].copy()
@@ -981,31 +944,23 @@ elif page == "🎯 تقرير الاعلانات":
 
         final_campaigns = final_campaigns.sort_values('إجمالي الصرف', ascending=False)
 
-        st.subheader("📋 حملات الإعلانات مع المنتجات المرتبطة")
-        search = st.text_input("🔍 بحث في اسم الحملة أو أسماء المنتجات", "")
-        view_df = final_campaigns
-        if search:
-            view_df = final_campaigns[
-                final_campaigns['اسم الحملة'].str.contains(search, case=False, na=False) |
-                final_campaigns['أسماء المنتجات'].fillna('').str.contains(search, case=False)
-            ]
-        st.dataframe(view_df, use_container_width=True, height=350)
+        st.subheader("📋 حملات الإعلانات")
+        st.dataframe(final_campaigns, use_container_width=True, height=350)
 
         if not campaigns_no_result.empty:
-            st.subheader("⚠️ حملات عامة (لا توجد نتائج / لا منتج ثابت)")
-            df_no_res = campaigns_no_result[['campaign_name', 'cost', 'ads_count', 'source_file']].copy()
+            st.subheader("⚠️ حملات عامة")
+            df_no_res = campaigns_no_result[['campaign_name', 'cost', 'ads_count']].copy()
             df_no_res.rename(columns={
                 'campaign_name': 'اسم الحملة',
                 'cost': 'إجمالي الصرف',
-                'ads_count': 'عدد الإعلانات',
-                'source_file': 'مصدر الملفات'
+                'ads_count': 'عدد الإعلانات'
             }, inplace=True)
             df_no_res['إجمالي الصرف'] = df_no_res['إجمالي الصرف'].round(2)
-            st.dataframe(df_no_res, use_container_width=True, height=250)
+            st.dataframe(df_no_res, use_container_width=True)
         else:
             df_no_res = pd.DataFrame()
 
-        st.subheader("📦 تقرير مجمّع لكل منتج")
+        st.subheader("📦 تقرير المنتجات")
 
         if campaigns_with_products.empty:
             st.warning("لا توجد حملات مرتبطة بمنتجات.")
@@ -1014,82 +969,42 @@ elif page == "🎯 تقرير الاعلانات":
             rows = []
             for _, row in campaigns_with_products.iterrows():
                 products_lst = row['قائمة المنتجات'] if isinstance(row['قائمة المنتجات'], list) else []
-                unique_products = list(dict.fromkeys(map(str, products_lst)))
-                for p in unique_products:
+                for p in products_lst:
                     rows.append({
                         'اسم المنتج': p,
                         'اسم الحملة': row['campaign_name'],
-                        'إجمالي الصرف_الحملة': row['cost'],
-                        'عدد الإعلانات_الحملة': row['ads_count']
+                        'الصرف': row['cost'],
+                        'الإعلانات': row['ads_count']
                     })
+            
             if rows:
                 df_campaign_product = pd.DataFrame(rows)
+                final_by_product = df_campaign_product.groupby('اسم المنتج').agg({
+                    'اسم الحملة': 'count',
+                    'الصرف': 'sum'
+                }).rename(columns={
+                    'اسم الحملة': 'عدد الحملات',
+                    'الصرف': 'إجمالي الصرف'
+                }).reset_index().sort_values('إجمالي الصرف', ascending=False)
+                final_by_product['إجمالي الصرف'] = final_by_product['إجمالي الصرف'].round(2)
             else:
-                df_campaign_product = pd.DataFrame(columns=['اسم المنتج', 'اسم الحملة', 'إجمالي الصرف_الحملة', 'عدد الإعلانات_الحملة'])
-
-            agg_from_campaigns = df_campaign_product.groupby('اسم المنتج').agg({
-                'اسم الحملة': 'count',
-                'إجمالي الصرف_الحملة': 'sum'
-            }).rename(columns={
-                'اسم الحملة': 'عدد الحملات',
-                'إجمالي الصرف_الحملة': 'إجمالي الصرف'
-            })
-
-            required_cols = ['اسم المنتج', 'إجمالي الأوردرات', 'تم التسليم', 'ملغي']
-            for c in required_cols:
-                if c not in products_df.columns:
-                    st.warning(f"⚠️ عمود {c} مش موجود في شيت المنتجات، هيتسجل 0.")
-                    products_df[c] = 0
-
-            agg_from_products = products_df.groupby('اسم المنتج').agg({
-                'إجمالي الأوردرات': 'sum',
-                'تم التسليم': 'sum',
-                'ملغي': 'sum'
-            })
-
-            final_by_product = agg_from_campaigns.join(agg_from_products, how='left').fillna(0)
-
-            final_by_product['سعر الأوردر المسلم'] = final_by_product.apply(
-                lambda r: (r['إجمالي الصرف'] / r['تم التسليم']) if r['تم التسليم'] > 0 else None,
-                axis=1
-            )
-
-            num_cols_prod = final_by_product.select_dtypes(include=['float', 'int']).columns
-            final_by_product[num_cols_prod] = final_by_product[num_cols_prod].round(2)
-
-            final_by_product = final_by_product.reset_index()
-            final_by_product = final_by_product.sort_values('إجمالي الصرف', ascending=False)
+                final_by_product = pd.DataFrame()
 
         if not final_by_product.empty:
-            st.dataframe(final_by_product, use_container_width=True, height=350)
-
-        used_products = set()
-        for lst in campaigns_with_products['قائمة المنتجات']:
-            if isinstance(lst, list):
-                for p in lst:
-                    used_products.add(str(p))
-
-        products_df['اسم المنتج'] = products_df['اسم المنتج'].astype(str)
-        unused_products = products_df[~products_df['اسم المنتج'].isin(used_products)].copy()
-
-        if not unused_products.empty:
-            st.subheader("📦 منتجات بدون أي حملات مرتبطة")
-            st.dataframe(unused_products, use_container_width=True, height=250)
+            st.dataframe(final_by_product, use_container_width=True)
 
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            final_campaigns.to_excel(writer, index=False, sheet_name="تقرير الحملات")
+            final_campaigns.to_excel(writer, index=False, sheet_name="الحملات")
             if not final_by_product.empty:
-                final_by_product.to_excel(writer, index=False, sheet_name="تقرير المنتجات")
+                final_by_product.to_excel(writer, index=False, sheet_name="المنتجات")
             if not df_no_res.empty:
-                df_no_res.to_excel(writer, index=False, sheet_name="حملات بلا نتائج")
-            if not unused_products.empty:
-                unused_products.to_excel(writer, index=False, sheet_name="منتجات بلا حملات")
+                df_no_res.to_excel(writer, index=False, sheet_name="حملات عامة")
 
         st.download_button(
-            "⬇️ تحميل التقرير الكامل (Excel)",
+            "⬇️ تحميل التقرير",
             data=buf.getvalue(),
-            file_name="تقرير_الحملات_والمنتجات_مجمع.xlsx",
+            file_name="تقرير_الاعلانات.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary"
         )
@@ -1098,9 +1013,3 @@ elif page == "🎯 تقرير الاعلانات":
         if st.button("🔄 البدء من جديد"):
             st.session_state.clear()
             st.rerun()
-
-
-
-
-
-
