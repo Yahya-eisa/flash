@@ -176,15 +176,11 @@ def normalize_campaign_name(name):
     """تنظيف اسم الحملة (إزالة تواريخ، Copy، فراغات، علامات غريبة)"""
     name = str(name)
     name = name.replace('‎', '').replace('‏', '')
-    # إزالة تواريخ في آخر الاسم مثل 12-15 أو 12/15
     name = re.sub(r'\s+\d{1,2}[-/]\d{1,2}.*$', '', name)
-    # إزالة Copy وأي رقم جنبها
     name = re.sub(r'\s*copy\s*\d*', '', name, flags=re.IGNORECASE)
     name = re.sub(r'\s*copy\s+of\s+', '', name, flags=re.IGNORECASE)
-    # إزالة كلمات عامة غير مفيدة لو موجودة كـ prefix
     name = re.sub(r'^new\s+', '', name, flags=re.IGNORECASE)
     name = re.sub(r'^scale\s+of\s+', '', name, flags=re.IGNORECASE)
-    # توحيد المسافات والشرطات
     name = re.sub(r'\s+[-–—]\s+', ' ', name)
     name = re.sub(r'\s+', ' ', name)
     return name.strip()
@@ -196,7 +192,6 @@ def extract_campaign_data(df, file_name):
     - campaign_name (normalized)
     - cost (من Amount spent أو Cost)
     """
-    # اختيار عمود اسم الحملة
     campaign_col = None
     for col in df.columns:
         col_lower = str(col).lower()
@@ -204,7 +199,6 @@ def extract_campaign_data(df, file_name):
             campaign_col = col
             break
 
-    # اختيار عمود الصرف:
     cost_col = None
     for col in df.columns:
         col_lower = str(col).lower()
@@ -231,7 +225,6 @@ def extract_campaign_data(df, file_name):
     out['cost'] = pd.to_numeric(df[cost_col], errors='coerce')
     out['source_file'] = file_name
 
-    # إزالة صفوف فاضية أو total
     out = out[out['campaign_name_raw'].notna()]
     out = out[~out['campaign_name_raw'].astype(str).str.lower().str.contains('total')]
     out = out[out['cost'].notna()]
@@ -243,7 +236,6 @@ def extract_campaign_data(df, file_name):
 st.set_page_config(page_title="🔥 FLASH Orders System", layout="wide")
 st.title("🔥 FLASH Orders System")
 
-# تهيئة حالة الجلسة لجزء الحملات
 if 'campaigns_df' not in st.session_state:
     st.session_state.campaigns_df = None
 if 'products_df' not in st.session_state:
@@ -253,9 +245,8 @@ if 'grouped_campaigns' not in st.session_state:
 if 'manual_mapping' not in st.session_state:
     st.session_state.manual_mapping = {}
 if 'current_step' not in st.session_state:
-    st.session_state.current_step = 'upload'  # upload -> manual_match -> final
+    st.session_state.current_step = 'upload'
 
-# القائمة الجانبية للاختيار
 page = st.sidebar.radio(
     "اختار الوظيفة:",
     [
@@ -309,9 +300,8 @@ if page == "🔍 مراجعة الأوردرات المكررة":
                 st.dataframe(duplicates_df, use_container_width=True, hide_index=True)
                 
                 buffer = BytesIO()
-                report_df.to_excel(buffer, sheet_name='تقرير المنتجات', index=False, engine='openpyxl')
+                duplicates_df.to_excel(buffer, sheet_name='التليفونات المكررة', index=False, engine='openpyxl')
                 buffer.seek(0)
-
                 
                 tz = pytz.timezone('Africa/Cairo')
                 today = datetime.datetime.now(tz).strftime("%Y-%m-%d")
@@ -528,7 +518,6 @@ elif page == "📊 عدد الأوردرات لكل منتج":
                 df_clean[product_col] = df_clean[product_col].astype(str).str.strip()
                 df_clean = df_clean.drop_duplicates()
                 
-                # حساب عدد الأوردرات المختلفة لكل منتج
                 orders_per_product = df_clean.groupby(product_col)[order_col].nunique().reset_index()
                 orders_per_product.columns = ['اسم المنتج', 'عدد الأوردرات']
                 orders_per_product = orders_per_product.sort_values('عدد الأوردرات', ascending=False)
@@ -604,17 +593,17 @@ elif page == "📋 تقرير المنتجات (إجمالي + مرتجع)":
             if product_col and order_col and status_col:
                 df_clean = merged_df[[order_col, product_col, status_col]].copy()
                 
-                # تنظيف أساسي
                 df_clean = df_clean.dropna(subset=[product_col, order_col, status_col])
                 df_clean[order_col] = df_clean[order_col].astype(str).str.strip()
                 df_clean[product_col] = df_clean[product_col].astype(str).str.strip()
                 df_clean[status_col] = df_clean[status_col].astype(str).str.strip()
                 
-                # تجاهل الحالات دي تمامًا
+                # هنا أهم تعديل: دمج نفس المنتج في نفس الأوردر كصف واحد
+                df_clean = df_clean.drop_duplicates(subset=[order_col, product_col, status_col])
+                
                 states_to_exclude = ['تم التأكيد', 'معلق', 'ملغي قبل الشحن']
                 df_clean = df_clean[~df_clean[status_col].isin(states_to_exclude)]
                 
-                # أسماء الحالات المهمة
                 delivered_status = 'تم التسليم'
                 return_status = 'مرتجع'
                 
@@ -623,18 +612,9 @@ elif page == "📋 تقرير المنتجات (إجمالي + مرتجع)":
                 for product in df_clean[product_col].unique():
                     product_orders = df_clean[df_clean[product_col] == product]
                     
-                    # إجمالي عدد الأوردرات الفريدة للمنتج
                     total_orders = product_orders[order_col].nunique()
-                    
-                    # عدد أوردرات تم التسليم الفريدة
-                    delivered_orders = product_orders[
-                        product_orders[status_col] == delivered_status
-                    ][order_col].nunique()
-                    
-                    # عدد أوردرات المرتجع الفريدة
-                    returned_orders = product_orders[
-                        product_orders[status_col] == return_status
-                    ][order_col].nunique()
+                    delivered_orders = product_orders[product_orders[status_col] == delivered_status][order_col].nunique()
+                    returned_orders = product_orders[product_orders[status_col] == return_status][order_col].nunique()
                     
                     report_data.append({
                         'اسم المنتج': product,
@@ -726,7 +706,6 @@ elif page == "👥 إجمالي نسب الأوردرات":
                 df_clean[employee_col] = df_clean[employee_col].astype(str).str.strip()
                 df_clean[status_col] = df_clean[status_col].astype(str).str.strip()
                 
-                # إزالة التكرارات - كل اوردر يحسب مرة واحدة فقط
                 df_clean = df_clean.drop_duplicates(subset=[order_col])
                 
                 report_data = []
@@ -750,7 +729,6 @@ elif page == "👥 إجمالي نسب الأوردرات":
                 report_df = pd.DataFrame(report_data)
                 report_df = report_df.sort_values('إجمالي الأوردرات', ascending=False)
                 
-                # إضافة صف الإجمالي
                 total_all = report_df['إجمالي الأوردرات'].sum()
                 delivered_all = report_df['تم التسليم'].sum()
                 pending_all = report_df['تم التأكيد'].sum()
@@ -809,6 +787,17 @@ elif page == "🎯 ربط الحملات بالمنتجات":
     st.header("🎯 ربط حملات الإعلانات بالمنتجات + تقرير لكل منتج")
     st.markdown("---")
 
+    if 'campaigns_df' not in st.session_state:
+        st.session_state.campaigns_df = None
+    if 'products_df' not in st.session_state:
+        st.session_state.products_df = None
+    if 'grouped_campaigns' not in st.session_state:
+        st.session_state.grouped_campaigns = None
+    if 'manual_mapping' not in st.session_state:
+        st.session_state.manual_mapping = {}
+    if 'current_step' not in st.session_state:
+        st.session_state.current_step = 'upload'
+
     if st.session_state.current_step == 'upload':
         st.subheader("📁 رفع ملفات الإعلانات (Facebook, TikTok, ...)")
         campaigns_files = st.file_uploader(
@@ -827,7 +816,6 @@ elif page == "🎯 ربط الحملات بالمنتجات":
         )
 
         if campaigns_files and products_files and st.button("🚀 ابدأ المعالجة", type="primary"):
-            # 1) الإعلانات
             all_campaigns = []
             for f in campaigns_files:
                 df = pd.read_excel(f)
@@ -838,7 +826,6 @@ elif page == "🎯 ربط الحملات بالمنتجات":
                 st.stop()
             campaigns_df = pd.concat(all_campaigns, ignore_index=True)
 
-            # 2) المنتجات
             all_products = []
             for f in products_files:
                 dfp = pd.read_excel(f)
@@ -857,7 +844,6 @@ elif page == "🎯 ربط الحملات بالمنتجات":
                 st.stop()
             products_df = pd.concat(all_products, ignore_index=True)
 
-            # تجميع الحملات حسب الاسم المنظف
             grouped_campaigns = campaigns_df.groupby('campaign_name').agg({
                 'cost': 'sum',
                 'campaign_name_raw': lambda x: list(x.unique()),
@@ -927,17 +913,14 @@ elif page == "🎯 ربط الحملات بالمنتجات":
         products_df = st.session_state.products_df
         manual_mapping = st.session_state.manual_mapping
 
-        # ربط كل حملة بقائمة منتجات (أو لا توجد نتائج)
         grouped['قائمة المنتجات'] = grouped['campaign_name'].map(manual_mapping)
 
-        # حملات عامة (لا توجد نتائج)
         def is_no_result(lst):
             return isinstance(lst, list) and len(lst) == 1 and lst[0] == NO_RESULT_LABEL
 
         campaigns_no_result = grouped[grouped['قائمة المنتجات'].apply(is_no_result)].copy()
         campaigns_with_products = grouped[~grouped['قائمة المنتجات'].apply(is_no_result)].copy()
 
-        # تحويل قائمة المنتجات إلى نص واحد في نفس الخلية
         def products_list_to_str(lst):
             if not isinstance(lst, list) or len(lst) == 0:
                 return ""
@@ -948,7 +931,6 @@ elif page == "🎯 ربط الحملات بالمنتجات":
 
         grouped['cost'] = grouped['cost'].round(2)
 
-        # --- 3.1 تقرير على مستوى الحملات ---
         final_campaigns = grouped[['campaign_name', 'ads_count', 'أسماء المنتجات', 'cost', 'source_file']].copy()
         final_campaigns.rename(columns={
             'campaign_name': 'اسم الحملة',
@@ -969,7 +951,6 @@ elif page == "🎯 ربط الحملات بالمنتجات":
             ]
         st.dataframe(view_df, use_container_width=True, height=350)
 
-        # حملات عامة بلا منتج ثابت
         if not campaigns_no_result.empty:
             st.subheader("⚠️ حملات عامة (لا توجد نتائج / لا منتج ثابت)")
             df_no_res = campaigns_no_result[['campaign_name', 'cost', 'ads_count', 'source_file']].copy()
@@ -984,7 +965,6 @@ elif page == "🎯 ربط الحملات بالمنتجات":
         else:
             df_no_res = pd.DataFrame()
 
-        # --- 3.2 تقرير مجمّع لكل منتج ---
         st.subheader("📦 تقرير مجمّع لكل منتج")
 
         if campaigns_with_products.empty:
@@ -1078,5 +1058,3 @@ elif page == "🎯 ربط الحملات بالمنتجات":
         if st.button("🔄 البدء من جديد"):
             st.session_state.clear()
             st.experimental_rerun()
-
-
