@@ -11,7 +11,6 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase import pdfmetrics
-from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 import pytz
 
 # ---------- Arabic helpers ----------
@@ -103,34 +102,12 @@ def df_to_pdf_table(df, title="FLASH"):
                 else ("" if pd.isna(x) else str(x))
             )
 
-    # ✅ التعديل: استخدام wordWrap='CJK' وإضافة splitLongWords
-    styleN = ParagraphStyle(
-        name='Normal',
-        fontName='Arabic-Bold',
-        fontSize=9,
-        alignment=TA_CENTER,
-        wordWrap='CJK',
-        splitLongWords=1,
-        leading=11
-    )
-    
-    styleBH = ParagraphStyle(
-        name='Header',
-        fontName='Arabic-Bold',
-        fontSize=10,
-        alignment=TA_CENTER,
-        wordWrap='CJK',
-        leading=12
-    )
-    
-    styleTitle = ParagraphStyle(
-        name='Title',
-        fontName='Arabic-Bold',
-        fontSize=14,
-        alignment=TA_CENTER,
-        wordWrap='CJK',
-        leading=16
-    )
+    styleN = ParagraphStyle(name='Normal', fontName='Arabic-Bold', fontSize=9,
+                            alignment=1, wordWrap='RTL')
+    styleBH = ParagraphStyle(name='Header', fontName='Arabic-Bold', fontSize=10,
+                             alignment=1, wordWrap='RTL')
+    styleTitle = ParagraphStyle(name='Title', fontName='Arabic-Bold', fontSize=14,
+                                alignment=1, wordWrap='RTL')
 
     data = []
     data.append([Paragraph(fix_arabic(col), styleBH) for col in df.columns])
@@ -324,7 +301,7 @@ elif page == "📦 المشتريات المجمعة":
 # ==================== الصفحة الثالثة: عدد الأوردرات لكل منتج ====================
 elif page == "📊 عدد الأوردرات لكل منتج":
     st.header("📊 عدد الأوردرات لكل منتج")
-    st.markdown("ارفع الملف علشان تعرف كل منتج كام اوردر 🔥")
+    st.markdown("ارفع الملف علشان تعرف كل منتج متكرر في كام اوردر 🔥")
     
     uploaded_file = st.file_uploader("📤 ارفع ملف Excel", type=["xlsx"], key="orders_count_file")
     
@@ -343,27 +320,27 @@ elif page == "📊 عدد الأوردرات لكل منتج":
             order_col = None
             
             for col in merged_df.columns:
-                if 'منتج' in str(col) or 'صنف' in str(col):
+                if 'منتج' in str(col):
                     product_col = col
                 elif 'رقم' in str(col) and 'اوردر' in str(col):
                     order_col = col
             
             if product_col and order_col:
                 df_clean = merged_df[[order_col, product_col]].copy()
-                df_clean = df_clean.dropna(subset=[product_col])
+                df_clean = df_clean.dropna(subset=[product_col, order_col])
                 df_clean[order_col] = df_clean[order_col].astype(str).str.strip()
                 df_clean[product_col] = df_clean[product_col].astype(str).str.strip()
-                df_clean = df_clean.drop_duplicates(subset=[order_col, product_col])
                 
+                # حساب عدد الأوردرات المختلفة لكل منتج
                 orders_per_product = df_clean.groupby(product_col)[order_col].nunique().reset_index()
                 orders_per_product.columns = ['اسم المنتج', 'عدد الأوردرات']
                 orders_per_product = orders_per_product.sort_values('عدد الأوردرات', ascending=False)
                 
-                total_orders = orders_per_product['عدد الأوردرات'].sum()
-                orders_per_product['النسبة %'] = (orders_per_product['عدد الأوردرات'] / total_orders * 100).round(2)
+                total_unique_orders = df_clean[order_col].nunique()
+                orders_per_product['النسبة %'] = (orders_per_product['عدد الأوردرات'] / total_unique_orders * 100).round(2)
                 
                 st.success(f"✅ تم تحليل {len(orders_per_product)} منتج")
-                st.info(f"📊 إجمالي الأوردرات: {df_clean[order_col].nunique()}")
+                st.info(f"📊 إجمالي الأوردرات الفريدة: {total_unique_orders}")
                 st.dataframe(orders_per_product, use_container_width=True, hide_index=True)
                 
                 buffer = BytesIO()
@@ -386,7 +363,7 @@ elif page == "📊 عدد الأوردرات لكل منتج":
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("أكثر منتج مبيعاً", orders_per_product.iloc[0]['اسم المنتج'])
+                    st.metric("أكثر منتج طلباً", orders_per_product.iloc[0]['اسم المنتج'])
                 with col2:
                     st.metric("عدد أوردراته", int(orders_per_product.iloc[0]['عدد الأوردرات']))
                 with col3:
@@ -418,7 +395,7 @@ elif page == "📋 تقرير المنتجات":
             status_col = None
             
             for col in merged_df.columns:
-                if 'منتج' in str(col) or 'صنف' in str(col):
+                if 'منتج' in str(col):
                     product_col = col
                 elif 'رقم' in str(col) and 'اوردر' in str(col):
                     order_col = col
@@ -432,15 +409,24 @@ elif page == "📋 تقرير المنتجات":
                 df_clean[product_col] = df_clean[product_col].astype(str).str.strip()
                 df_clean[status_col] = df_clean[status_col].astype(str).str.strip()
                 
-                df_clean = df_clean.drop_duplicates(subset=[order_col, product_col])
-                
+                # حساب الأوردرات الفريدة لكل منتج
                 report_data = []
                 for product in df_clean[product_col].unique():
                     product_orders = df_clean[df_clean[product_col] == product]
+                    unique_orders = product_orders[order_col].unique()
                     
-                    total = len(product_orders)
-                    delivered = len(product_orders[product_orders[status_col].str.contains('تم التسليم', case=False, na=False)])
-                    returned = len(product_orders[product_orders[status_col].str.contains('مرتجع', case=False, na=False)])
+                    total = len(unique_orders)
+                    
+                    # حساب تم التسليم والمرتجع بناءً على أكواد الأوردرات الفريدة
+                    delivered = 0
+                    returned = 0
+                    
+                    for order_code in unique_orders:
+                        order_status = product_orders[product_orders[order_col] == order_code][status_col].iloc[0]
+                        if 'تم التسليم' in order_status:
+                            delivered += 1
+                        elif 'مرتجع' in order_status:
+                            returned += 1
                     
                     report_data.append({
                         'اسم المنتج': product,
@@ -489,7 +475,7 @@ elif page == "📋 تقرير المنتجات":
 # ==================== الصفحة الخامسة: إجمالي نسب الأوردرات ====================
 elif page == "👥 إجمالي نسب الأوردرات":
     st.header("👥 إجمالي نسب الأوردرات")
-    st.markdown("ارفع الملف علشان تشوف كل مودريتور: إجمالي، تم التسليم، مرتجع 🔥")
+    st.markdown("ارفع الملف علشان تشوف كل موظف: إجمالي، تم التسليم، مرتجع 🔥")
     
     uploaded_file = st.file_uploader("📤 ارفع ملف Excel", type=["xlsx"], key="moderators_report_file")
     
@@ -504,37 +490,38 @@ elif page == "👥 إجمالي نسب الأوردرات":
         if all_frames:
             merged_df = pd.concat(all_frames, ignore_index=True, sort=False)
             
-            moderator_col = None
+            employee_col = None
             order_col = None
             status_col = None
             
             for col in merged_df.columns:
-                if 'مودريتور' in str(col) or 'موظف' in str(col):
-                    moderator_col = col
+                if 'موظف' in str(col) and 'مجموعة' in str(col):
+                    employee_col = col
                 elif 'رقم' in str(col) and 'اوردر' in str(col):
                     order_col = col
                 elif 'حالة' in str(col) and 'اوردر' in str(col):
                     status_col = col
             
-            if moderator_col and order_col and status_col:
-                df_clean = merged_df[[order_col, moderator_col, status_col]].copy()
-                df_clean = df_clean.dropna(subset=[moderator_col, order_col])
+            if employee_col and order_col and status_col:
+                df_clean = merged_df[[order_col, employee_col, status_col]].copy()
+                df_clean = df_clean.dropna(subset=[employee_col, order_col])
                 df_clean[order_col] = df_clean[order_col].astype(str).str.strip()
-                df_clean[moderator_col] = df_clean[moderator_col].astype(str).str.strip()
+                df_clean[employee_col] = df_clean[employee_col].astype(str).str.strip()
                 df_clean[status_col] = df_clean[status_col].astype(str).str.strip()
                 
+                # إزالة التكرارات - كل اوردر يحسب مرة واحدة فقط
                 df_clean = df_clean.drop_duplicates(subset=[order_col])
                 
                 report_data = []
-                for moderator in df_clean[moderator_col].unique():
-                    moderator_orders = df_clean[df_clean[moderator_col] == moderator]
+                for employee in df_clean[employee_col].unique():
+                    employee_orders = df_clean[df_clean[employee_col] == employee]
                     
-                    total = len(moderator_orders)
-                    delivered = len(moderator_orders[moderator_orders[status_col].str.contains('تم التسليم', case=False, na=False)])
-                    returned = len(moderator_orders[moderator_orders[status_col].str.contains('مرتجع', case=False, na=False)])
+                    total = len(employee_orders)
+                    delivered = len(employee_orders[employee_orders[status_col].str.contains('تم التسليم', case=False, na=False)])
+                    returned = len(employee_orders[employee_orders[status_col].str.contains('مرتجع', case=False, na=False)])
                     
                     report_data.append({
-                        'اسم المودريتور': moderator,
+                        'اسم الموظف': employee,
                         'إجمالي الأوردرات': total,
                         'تم التسليم': delivered,
                         'مرتجع': returned,
@@ -550,7 +537,7 @@ elif page == "👥 إجمالي نسب الأوردرات":
                 returned_all = report_df['مرتجع'].sum()
                 
                 total_row = pd.DataFrame([{
-                    'اسم المودريتور': '📊 الإجمالي الكلي',
+                    'اسم الموظف': '📊 الإجمالي الكلي',
                     'إجمالي الأوردرات': total_all,
                     'تم التسليم': delivered_all,
                     'مرتجع': returned_all,
@@ -560,7 +547,7 @@ elif page == "👥 إجمالي نسب الأوردرات":
                 
                 report_df = pd.concat([report_df, total_row], ignore_index=True)
                 
-                st.success(f"✅ تم تحليل {len(report_df)-1} مودريتور")
+                st.success(f"✅ تم تحليل {len(report_df)-1} موظف")
                 st.dataframe(report_df, use_container_width=True, hide_index=True)
                 
                 buffer = BytesIO()
@@ -572,7 +559,7 @@ elif page == "👥 إجمالي نسب الأوردرات":
                 file_name = f"إجمالي نسب الأوردرات - {today}.xlsx"
                 
                 st.download_button(
-                    label="📥 تحميل تقرير المودريتورز",
+                    label="📥 تحميل تقرير الموظفين",
                     data=buffer.getvalue(),
                     file_name=file_name,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
