@@ -309,8 +309,9 @@ if page == "🔍 مراجعة الأوردرات المكررة":
                 st.dataframe(duplicates_df, use_container_width=True, hide_index=True)
                 
                 buffer = BytesIO()
-                duplicates_df.to_excel(buffer, sheet_name='التليفونات المكررة', index=False, engine='openpyxl')
+                report_df.to_excel(buffer, sheet_name='تقرير المنتجات', index=False, engine='openpyxl')
                 buffer.seek(0)
+
                 
                 tz = pytz.timezone('Africa/Cairo')
                 today = datetime.datetime.now(tz).strftime("%Y-%m-%d")
@@ -1077,3 +1078,4 @@ elif page == "🎯 ربط الحملات بالمنتجات":
         if st.button("🔄 البدء من جديد"):
             st.session_state.clear()
             st.experimental_rerun()
+
