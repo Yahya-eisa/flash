@@ -32,17 +32,25 @@ def clean_and_fill_data(df):
     df = df.copy()
     
     # ملء الفراغات بـ forward fill ثم backward fill
-    df['كود الاوردر'] = df['كود الاوردر'].ffill().bfill()
-    df['اسم العميل'] = df['اسم العميل'].ffill().bfill()
-    df['موظف المجموعة'] = df['موظف المجموعة'].ffill().bfill()
-    df['حالة الاوردر'] = df['حالة الاوردر'].ffill().bfill()
-    df['المدينة'] = df['المدينة'].ffill().bfill()
+    if 'كود الاوردر' in df.columns:
+        df['كود الاوردر'] = df['كود الاوردر'].ffill().bfill()
+    if 'اسم العميل' in df.columns:
+        df['اسم العميل'] = df['اسم العميل'].ffill().bfill()
+    if 'موظف المجموعة' in df.columns:
+        df['موظف المجموعة'] = df['موظف المجموعة'].ffill().bfill()
+    if 'حالة الاوردر' in df.columns:
+        df['حالة الاوردر'] = df['حالة الاوردر'].ffill().bfill()
+    if 'المدينة' in df.columns:
+        df['المدينة'] = df['المدينة'].ffill().bfill()
     
     # إزالة الصفوف الفارغة الكاملة
-    df = df.dropna(subset=['كود الاوردر', 'اسم الصنف'], how='all')
+    base_cols = [c for c in ['كود الاوردر', 'اسم الصنف'] if c in df.columns]
+    if base_cols:
+        df = df.dropna(subset=base_cols, how='all')
     
     # إزالة الصفوف اللي ما فيها منتج (product rows)
-    df = df[df['اسم الصنف'].notna() & (df['اسم الصنف'].astype(str).str.strip() != '')]
+    if 'اسم الصنف' in df.columns:
+        df = df[df['اسم الصنف'].notna() & (df['اسم الصنف'].astype(str).str.strip() != '')]
     
     return df.reset_index(drop=True)
 
@@ -197,14 +205,12 @@ def extract_campaign_data(df, file_name):
             break
 
     # اختيار عمود الصرف:
-    # 1) amount spent
     cost_col = None
     for col in df.columns:
         col_lower = str(col).lower()
         if 'amount spent' in col_lower:
             cost_col = col
             break
-    # 2) cost / spend / انفاق / صرف / تكلفة مع استبعاد cpc/cpm/per
     if cost_col is None:
         for col in df.columns:
             col_lower = str(col).lower()
@@ -562,10 +568,10 @@ elif page == "📊 عدد الأوردرات لكل منتج":
                 st.error("❌ مش لاقي عمود المنتج أو رقم الأوردر في الملف!")
                 st.info(f"الأعمدة الموجودة: {', '.join(merged_df.columns.tolist())}")
 
-# ==================== الصفحة الخامسة: تقرير المنتجات (إجمالي + مرتجع) ====================
+# ==================== الصفحة الخامسة: تقرير المنتجات (إجمالي + تم التسليم + مرتجع) ====================
 elif page == "📋 تقرير المنتجات (إجمالي + مرتجع)":
-    st.header("📋 تقرير المنتجات (إجمالي عدد الأوردرات + إجمالي المرتجع)")
-    st.markdown("ارفع الملف علشان تشوف لكل منتج: إجمالي عدد الأوردرات وإجمالي المرتجع (بدون المعلق/تم التأكيد/ملغي قبل الشحن) 🔥")
+    st.header("📋 تقرير المنتجات (إجمالي عدد الأوردرات + تم التسليم + المرتجع)")
+    st.markdown("ارفع الملف علشان تشوف لكل منتج: إجمالي عدد الأوردرات، عدد أوردرات تم التسليم، وعدد أوردرات المرتجع (بدون المعلق/تم التأكيد/ملغي قبل الشحن) 🔥")
     
     uploaded_file = st.file_uploader("📤 ارفع ملف Excel", type=["xlsx"], key="products_report_file")
     
@@ -603,11 +609,12 @@ elif page == "📋 تقرير المنتجات (إجمالي + مرتجع)":
                 df_clean[product_col] = df_clean[product_col].astype(str).str.strip()
                 df_clean[status_col] = df_clean[status_col].astype(str).str.strip()
                 
-                # نرمي أي حالات مش عايزين نحسبها في التقرير
+                # تجاهل الحالات دي تمامًا
                 states_to_exclude = ['تم التأكيد', 'معلق', 'ملغي قبل الشحن']
                 df_clean = df_clean[~df_clean[status_col].isin(states_to_exclude)]
                 
-                # حالة المرتجع
+                # أسماء الحالات المهمة
+                delivered_status = 'تم التسليم'
                 return_status = 'مرتجع'
                 
                 report_data = []
@@ -615,8 +622,15 @@ elif page == "📋 تقرير المنتجات (إجمالي + مرتجع)":
                 for product in df_clean[product_col].unique():
                     product_orders = df_clean[df_clean[product_col] == product]
                     
+                    # إجمالي عدد الأوردرات الفريدة للمنتج
                     total_orders = product_orders[order_col].nunique()
                     
+                    # عدد أوردرات تم التسليم الفريدة
+                    delivered_orders = product_orders[
+                        product_orders[status_col] == delivered_status
+                    ][order_col].nunique()
+                    
+                    # عدد أوردرات المرتجع الفريدة
                     returned_orders = product_orders[
                         product_orders[status_col] == return_status
                     ][order_col].nunique()
@@ -624,6 +638,7 @@ elif page == "📋 تقرير المنتجات (إجمالي + مرتجع)":
                     report_data.append({
                         'اسم المنتج': product,
                         'إجمالي الأوردرات': total_orders,
+                        'تم التسليم': delivered_orders,
                         'إجمالي المرتجع': returned_orders
                     })
                 
@@ -634,15 +649,15 @@ elif page == "📋 تقرير المنتجات (إجمالي + مرتجع)":
                 st.dataframe(report_df, use_container_width=True, hide_index=True)
                 
                 buffer = BytesIO()
-                report_df.to_excel(buffer, sheet_name='تقرير المنتجات - إجمالي ومرتجع', index=False, engine='openpyxl')
+                report_df.to_excel(buffer, sheet_name='تقرير المنتجات - إجمالي/تسليم/مرتجع', index=False, engine='openpyxl')
                 buffer.seek(0)
                 
                 tz = pytz.timezone('Africa/Cairo')
                 today = datetime.datetime.now(tz).strftime("%Y-%m-%d")
-                file_name = f"تقرير المنتجات - إجمالي ومرتجع - {today}.xlsx"
+                file_name = f"تقرير المنتجات - إجمالي-تسليم-مرتجع - {today}.xlsx"
                 
                 st.download_button(
-                    label="📥 تحميل تقرير المنتجات (إجمالي ومرتجع)",
+                    label="📥 تحميل تقرير المنتجات (إجمالي + تم التسليم + مرتجع)",
                     data=buffer.getvalue(),
                     file_name=file_name,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -652,16 +667,21 @@ elif page == "📋 تقرير المنتجات (إجمالي + مرتجع)":
                 st.subheader("📊 إحصائيات عامة")
                 
                 total_orders_all = report_df['إجمالي الأوردرات'].sum()
+                total_delivered_all = report_df['تم التسليم'].sum()
                 total_returns_all = report_df['إجمالي المرتجع'].sum()
+                
+                delivered_rate = round((total_delivered_all / total_orders_all * 100), 2) if total_orders_all > 0 else 0
                 return_rate = round((total_returns_all / total_orders_all * 100), 2) if total_orders_all > 0 else 0
                 
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3, col4 = st.columns(4)
                 with col1:
                     st.metric("إجمالي الأوردرات لكل المنتجات", total_orders_all)
                 with col2:
-                    st.metric("إجمالي المرتجع لكل المنتجات", total_returns_all)
+                    st.metric("إجمالي تم التسليم لكل المنتجات", total_delivered_all)
                 with col3:
-                    st.metric("نسبة المرتجع الكلية", f"{return_rate}%")
+                    st.metric("إجمالي المرتجع لكل المنتجات", total_returns_all)
+                with col4:
+                    st.metric("نسبة المرتجع من الإجمالي", f"{return_rate}%")
             else:
                 st.error("❌ مش لاقي الأعمدة المطلوبة في الملف (اسم المنتج / كود الأوردر / حالة الأوردر)!")
                 st.info(f"الأعمدة الموجودة: {', '.join(merged_df.columns.tolist())}")
@@ -1057,7 +1077,3 @@ elif page == "🎯 ربط الحملات بالمنتجات":
         if st.button("🔄 البدء من جديد"):
             st.session_state.clear()
             st.experimental_rerun()
-
-    st.markdown("---")
-    st.caption("Made with ❤️ | Powered by Streamlit")
-
