@@ -783,8 +783,8 @@ elif page == "👥 إجمالي نسب الأوردرات":
                 st.info(f"الأعمدة الموجودة: {', '.join(merged_df.columns.tolist())}")
 
 # ==================== الصفحة السابعة: ربط الحملات بالمنتجات ====================
-elif page == "🎯 ربط الحملات بالمنتجات":
-    st.header("🎯 ربط حملات الإعلانات بالمنتجات + تقرير لكل منتج")
+elif page == "🎯 تقرير الاعلانات":
+    st.header("🎯 تقرير الاعلانات")
     st.markdown("---")
 
     if 'campaigns_df' not in st.session_state:
@@ -1058,3 +1058,4 @@ elif page == "🎯 ربط الحملات بالمنتجات":
         if st.button("🔄 البدء من جديد"):
             st.session_state.clear()
             st.experimental_rerun()
+
