@@ -11,6 +11,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase import pdfmetrics
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 import pytz
 
 # ---------- Arabic helpers ----------
@@ -102,12 +103,34 @@ def df_to_pdf_table(df, title="FLASH"):
                 else ("" if pd.isna(x) else str(x))
             )
 
-    styleN = ParagraphStyle(name='Normal', fontName='Arabic-Bold', fontSize=9,
-                            alignment=1, wordWrap='RTL')
-    styleBH = ParagraphStyle(name='Header', fontName='Arabic-Bold', fontSize=10,
-                             alignment=1, wordWrap='RTL')
-    styleTitle = ParagraphStyle(name='Title', fontName='Arabic-Bold', fontSize=14,
-                                alignment=1, wordWrap='RTL')
+    # ✅ التعديل: استخدام wordWrap='CJK' وإضافة splitLongWords
+    styleN = ParagraphStyle(
+        name='Normal',
+        fontName='Arabic-Bold',
+        fontSize=9,
+        alignment=TA_CENTER,
+        wordWrap='CJK',
+        splitLongWords=1,
+        leading=11
+    )
+    
+    styleBH = ParagraphStyle(
+        name='Header',
+        fontName='Arabic-Bold',
+        fontSize=10,
+        alignment=TA_CENTER,
+        wordWrap='CJK',
+        leading=12
+    )
+    
+    styleTitle = ParagraphStyle(
+        name='Title',
+        fontName='Arabic-Bold',
+        fontSize=14,
+        alignment=TA_CENTER,
+        wordWrap='CJK',
+        leading=16
+    )
 
     data = []
     data.append([Paragraph(fix_arabic(col), styleBH) for col in df.columns])
@@ -141,8 +164,8 @@ def df_to_pdf_table(df, title="FLASH"):
     return elements
 
 # ---------- Streamlit App ----------
-st.set_page_config(page_title="🔥 ECOMERG Orders System", layout="wide")
-st.title("🔥 ECOMERG Orders System")
+st.set_page_config(page_title="🔥 FLASH Orders System", layout="wide")
+st.title("🔥 FLASH Orders System")
 
 # القائمة الجانبية للاختيار
 page = st.sidebar.radio(
@@ -322,7 +345,7 @@ elif page == "📊 عدد الأوردرات لكل منتج":
             for col in merged_df.columns:
                 if 'منتج' in str(col) or 'صنف' in str(col):
                     product_col = col
-                elif 'كود' in str(col).lower() or ('رقم' in str(col).lower() and 'عشوائي' in str(col).lower()):
+                elif 'رقم' in str(col) and 'اوردر' in str(col):
                     order_col = col
             
             if product_col and order_col:
@@ -369,7 +392,7 @@ elif page == "📊 عدد الأوردرات لكل منتج":
                 with col3:
                     st.metric("نسبته من الإجمالي", f"{orders_per_product.iloc[0]['النسبة %']}%")
             else:
-                st.error("❌ مش لاقي عمود المنتج أو كود الأوردر في الملف!")
+                st.error("❌ مش لاقي عمود المنتج أو رقم الأوردر في الملف!")
                 st.info(f"الأعمدة الموجودة: {', '.join(merged_df.columns.tolist())}")
 
 # ==================== الصفحة الرابعة: تقرير المنتجات ====================
@@ -409,10 +432,8 @@ elif page == "📋 تقرير المنتجات":
                 df_clean[product_col] = df_clean[product_col].astype(str).str.strip()
                 df_clean[status_col] = df_clean[status_col].astype(str).str.strip()
                 
-                # إزالة المكررات
                 df_clean = df_clean.drop_duplicates(subset=[order_col, product_col])
                 
-                # حساب الإحصائيات
                 report_data = []
                 for product in df_clean[product_col].unique():
                     product_orders = df_clean[df_clean[product_col] == product]
@@ -502,10 +523,8 @@ elif page == "👥 إجمالي نسب الأوردرات":
                 df_clean[moderator_col] = df_clean[moderator_col].astype(str).str.strip()
                 df_clean[status_col] = df_clean[status_col].astype(str).str.strip()
                 
-                # إزالة المكررات
                 df_clean = df_clean.drop_duplicates(subset=[order_col])
                 
-                # حساب الإحصائيات لكل مودريتور
                 report_data = []
                 for moderator in df_clean[moderator_col].unique():
                     moderator_orders = df_clean[df_clean[moderator_col] == moderator]
@@ -526,12 +545,10 @@ elif page == "👥 إجمالي نسب الأوردرات":
                 report_df = pd.DataFrame(report_data)
                 report_df = report_df.sort_values('إجمالي الأوردرات', ascending=False)
                 
-                # حساب الإجمالي الكلي
                 total_all = report_df['إجمالي الأوردرات'].sum()
                 delivered_all = report_df['تم التسليم'].sum()
                 returned_all = report_df['مرتجع'].sum()
                 
-                # إضافة صف الإجمالي
                 total_row = pd.DataFrame([{
                     'اسم المودريتور': '📊 الإجمالي الكلي',
                     'إجمالي الأوردرات': total_all,
