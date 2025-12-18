@@ -815,9 +815,7 @@ elif page == "🎯 تقرير الاعلانات":
             key="products"
         )
 
-    if campaignsfiles and productsfiles and st.button("🚀 ابدأ المعالجة", type="primary"):
-    from difflib import SequenceMatcher
-    
+    if campaigns_files and products_files and st.button("🚀 ابدأ المعالجة", type="primary"):    
     allcampaigns = []
     for f in campaignsfiles:
         df = pd.read_excel(f)
@@ -1100,6 +1098,7 @@ elif page == "🎯 تقرير الاعلانات":
         if st.button("🔄 البدء من جديد"):
             st.session_state.clear()
             st.rerun()
+
 
 
 
