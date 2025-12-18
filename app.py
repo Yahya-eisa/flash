@@ -650,7 +650,7 @@ elif page == "📋 تقرير المنتجات (إجمالي + مرتجع)":
                 st.dataframe(report_df, use_container_width=True, hide_index=True)
                 
                 buffer = BytesIO()
-                report_df.to_excel(buffer, sheet_name='تقرير المنتجات - إجمالي/تسليم/مرتجع', index=False, engine='openpyxl')
+                report_df.to_excel(buffer, sheet_name='تقرير المنتجات', index=False, engine='openpyxl')
                 buffer.seek(0)
                 
                 tz = pytz.timezone('Africa/Cairo')
@@ -1078,4 +1078,5 @@ elif page == "🎯 ربط الحملات بالمنتجات":
         if st.button("🔄 البدء من جديد"):
             st.session_state.clear()
             st.experimental_rerun()
+
 
