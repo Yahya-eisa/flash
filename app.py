@@ -306,7 +306,7 @@ if page == "🔍 مراجعة الأوردرات المكررة":
                 duplicates_df.to_excel(buffer, sheet_name='التليفونات المكررة', index=False, engine='openpyxl')
                 buffer.seek(0)
                 
-                tz = pytz.timezone('Africa/Cairo")
+                tz = pytz.timezone('Africa/Cairo')
                 today = datetime.datetime.now(tz).strftime("%Y-%m-%d")
                 file_name = f"الاوردرات المكررة - {today}.xlsx"
                 
@@ -1060,3 +1060,4 @@ elif page == "🎯 ربط الحملات بالمنتجات":
 
     st.markdown("---")
     st.caption("Made with ❤️ | Powered by Streamlit")
+
