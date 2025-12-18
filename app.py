@@ -911,7 +911,7 @@ elif page == "🎯 تقرير الاعلانات":
                 st.rerun()
 
     elif st.session_state.current_step == 'final':
-        st.subheader("📊 التقرير النهائي")
+        st.subheader("📊 التقرير النهائي الكامل")
 
         grouped = st.session_state.grouped_campaigns.copy()
         products_df = st.session_state.products_df
@@ -925,30 +925,75 @@ elif page == "🎯 تقرير الاعلانات":
         campaigns_no_result = grouped[grouped['قائمة المنتجات'].apply(is_no_result)].copy()
         campaigns_with_products = grouped[~grouped['قائمة المنتجات'].apply(is_no_result)].copy()
 
-        def products_list_to_str(lst):
-            if not isinstance(lst, list) or len(lst) == 0:
-                return ""
-            unique = list(dict.fromkeys(map(str, lst)))
-            return " | ".join(unique)
+        # ========== بناء التقرير الكامل لكل منتج ==========
+        st.subheader("📦 التقرير الشامل: حملات + منتجات + أداء")
 
-        grouped['أسماء المنتجات'] = grouped['قائمة المنتجات'].apply(products_list_to_str)
-        grouped['cost'] = grouped['cost'].round(2)
+        if campaigns_with_products.empty:
+            st.warning("لا توجد حملات مرتبطة بمنتجات.")
+            final_report = pd.DataFrame()
+        else:
+            # التأكد من وجود الأعمدة المطلوبة في ملف المنتجات
+            required_cols = ['اسم المنتج', 'إجمالي الأوردرات', 'تم التسليم', 'إجمالي المرتجع']
+            for col in required_cols:
+                if col not in products_df.columns:
+                    st.warning(f"⚠️ عمود '{col}' غير موجود في ملف المنتجات. سيتم وضع قيمة 0.")
+                    products_df[col] = 0
 
-        final_campaigns = grouped[['campaign_name', 'ads_count', 'أسماء المنتجات', 'cost', 'source_file']].copy()
-        final_campaigns.rename(columns={
-            'campaign_name': 'اسم الحملة',
-            'ads_count': 'عدد الإعلانات',
-            'cost': 'إجمالي الصرف',
-            'source_file': 'مصدر الملفات'
-        }, inplace=True)
+            # بناء التقرير الكامل
+            report_rows = []
+            for _, campaign_row in campaigns_with_products.iterrows():
+                campaign_name = campaign_row['campaign_name']
+                campaign_cost = campaign_row['cost']
+                campaign_ads_count = campaign_row['ads_count']
+                products_list = campaign_row['قائمة المنتجات']
+                
+                if isinstance(products_list, list) and len(products_list) > 0:
+                    for product_name in products_list:
+                        # البحث عن بيانات المنتج
+                        product_data = products_df[products_df['اسم المنتج'] == product_name]
+                        
+                        if not product_data.empty:
+                            # أخذ أول صف (في حالة تكرار المنتج)
+                            product_row = product_data.iloc[0]
+                            total_orders = int(product_row.get('إجمالي الأوردرات', 0))
+                            delivered_orders = int(product_row.get('تم التسليم', 0))
+                            returned_orders = int(product_row.get('إجمالي المرتجع', 0))
+                        else:
+                            total_orders = 0
+                            delivered_orders = 0
+                            returned_orders = 0
+                        
+                        # حساب سعر الأوردر
+                        if delivered_orders > 0:
+                            order_price = campaign_cost / delivered_orders
+                        else:
+                            order_price = None
+                        
+                        report_rows.append({
+                            'اسم الحملة': campaign_name,
+                            'اسم المنتج': product_name,
+                            'إجمالي الصرف': round(campaign_cost, 2),
+                            'عدد الإعلانات': campaign_ads_count,
+                            'إجمالي الأوردرات': total_orders,
+                            'تم التسليم': delivered_orders,
+                            'المرتجع': returned_orders,
+                            'سعر الأوردر المسلم': round(order_price, 2) if order_price else None
+                        })
+            
+            if report_rows:
+                final_report = pd.DataFrame(report_rows)
+                final_report = final_report.sort_values('إجمالي الصرف', ascending=False)
+                
+                st.success(f"✅ تم إنشاء تقرير شامل لـ {len(final_report)} سجل (حملة × منتج)")
+                st.dataframe(final_report, use_container_width=True, height=400)
+            else:
+                final_report = pd.DataFrame()
+                st.warning("لم يتم العثور على بيانات كافية لإنشاء التقرير.")
 
-        final_campaigns = final_campaigns.sort_values('إجمالي الصرف', ascending=False)
-
-        st.subheader("📋 حملات الإعلانات")
-        st.dataframe(final_campaigns, use_container_width=True, height=350)
-
+        # ========== عرض الحملات العامة (بدون منتجات) ==========
         if not campaigns_no_result.empty:
-            st.subheader("⚠️ حملات عامة")
+            st.divider()
+            st.subheader("⚠️ حملات عامة (لا توجد منتجات مرتبطة)")
             df_no_res = campaigns_no_result[['campaign_name', 'cost', 'ads_count']].copy()
             df_no_res.rename(columns={
                 'campaign_name': 'اسم الحملة',
@@ -956,58 +1001,49 @@ elif page == "🎯 تقرير الاعلانات":
                 'ads_count': 'عدد الإعلانات'
             }, inplace=True)
             df_no_res['إجمالي الصرف'] = df_no_res['إجمالي الصرف'].round(2)
-            st.dataframe(df_no_res, use_container_width=True)
+            st.dataframe(df_no_res, use_container_width=True, height=250)
         else:
             df_no_res = pd.DataFrame()
 
-        st.subheader("📦 تقرير المنتجات")
-
-        if campaigns_with_products.empty:
-            st.warning("لا توجد حملات مرتبطة بمنتجات.")
-            final_by_product = pd.DataFrame()
-        else:
-            rows = []
-            for _, row in campaigns_with_products.iterrows():
-                products_lst = row['قائمة المنتجات'] if isinstance(row['قائمة المنتجات'], list) else []
-                for p in products_lst:
-                    rows.append({
-                        'اسم المنتج': p,
-                        'اسم الحملة': row['campaign_name'],
-                        'الصرف': row['cost'],
-                        'الإعلانات': row['ads_count']
-                    })
-            
-            if rows:
-                df_campaign_product = pd.DataFrame(rows)
-                final_by_product = df_campaign_product.groupby('اسم المنتج').agg({
-                    'اسم الحملة': 'count',
-                    'الصرف': 'sum'
-                }).rename(columns={
-                    'اسم الحملة': 'عدد الحملات',
-                    'الصرف': 'إجمالي الصرف'
-                }).reset_index().sort_values('إجمالي الصرف', ascending=False)
-                final_by_product['إجمالي الصرف'] = final_by_product['إجمالي الصرف'].round(2)
-            else:
-                final_by_product = pd.DataFrame()
-
-        if not final_by_product.empty:
-            st.dataframe(final_by_product, use_container_width=True)
-
+        # ========== تحميل التقرير الكامل ==========
+        st.divider()
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            final_campaigns.to_excel(writer, index=False, sheet_name="الحملات")
-            if not final_by_product.empty:
-                final_by_product.to_excel(writer, index=False, sheet_name="المنتجات")
+            if not final_report.empty:
+                final_report.to_excel(writer, index=False, sheet_name="التقرير الشامل")
             if not df_no_res.empty:
                 df_no_res.to_excel(writer, index=False, sheet_name="حملات عامة")
 
+        tz = pytz.timezone('Africa/Cairo')
+        today = datetime.datetime.now(tz).strftime("%Y-%m-%d")
+        file_name = f"تقرير_الاعلانات_الشامل_{today}.xlsx"
+
         st.download_button(
-            "⬇️ تحميل التقرير",
+            "⬇️ تحميل التقرير الشامل (Excel)",
             data=buf.getvalue(),
-            file_name="تقرير_الاعلانات.xlsx",
+            file_name=file_name,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary"
         )
+
+        # ========== إحصائيات سريعة ==========
+        if not final_report.empty:
+            st.divider()
+            st.subheader("📊 إحصائيات سريعة")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                total_spend = final_report['إجمالي الصرف'].sum()
+                st.metric("إجمالي الصرف الكلي", f"{total_spend:,.2f}")
+            with col2:
+                total_orders = final_report['إجمالي الأوردرات'].sum()
+                st.metric("إجمالي الأوردرات", int(total_orders))
+            with col3:
+                total_delivered = final_report['تم التسليم'].sum()
+                st.metric("إجمالي المسلم", int(total_delivered))
+            with col4:
+                avg_order_price = final_report['سعر الأوردر المسلم'].mean()
+                st.metric("متوسط سعر الأوردر", f"{avg_order_price:,.2f}" if pd.notna(avg_order_price) else "N/A")
 
         st.markdown("---")
         if st.button("🔄 البدء من جديد"):
