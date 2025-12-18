@@ -859,7 +859,7 @@ elif page == "🎯 تقرير الاعلانات":
             st.session_state.grouped_campaigns = grouped_campaigns
             st.session_state.manual_mapping = {}
             st.session_state.current_step = 'manual_match'
-            st.experimental_rerun()
+            st.rerun()
 
     elif st.session_state.current_step == 'manual_match':
         st.subheader("🔍 مطابقة الحملات مع المنتجات (يدويًا)")
@@ -904,7 +904,7 @@ elif page == "🎯 تقرير الاعلانات":
 
         if submitted:
             st.session_state.current_step = 'final'
-            st.experimental_rerun()
+            st.rerun()
 
     elif st.session_state.current_step == 'final':
         st.subheader("📊 التقرير النهائي")
@@ -1057,6 +1057,7 @@ elif page == "🎯 تقرير الاعلانات":
         st.markdown("---")
         if st.button("🔄 البدء من جديد"):
             st.session_state.clear()
-            st.experimental_rerun()
+            st.rerun()
+
 
 
