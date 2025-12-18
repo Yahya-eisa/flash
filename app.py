@@ -141,8 +141,8 @@ def df_to_pdf_table(df, title="FLASH"):
     return elements
 
 # ---------- Streamlit App ----------
-st.set_page_config(page_title="🔥 ECOMERG Orders System", layout="wide")
-st.title("🔥 ECOMERG Orders System")
+st.set_page_config(page_title="🔥 Flash Orders System", layout="wide")
+st.title("🔥 Flash Orders System")
 
 # القائمة الجانبية للاختيار
 page = st.sidebar.radio(
@@ -373,3 +373,4 @@ elif page == "🚚 Flash Orders Processor":
                 file_name=file_name,
                 mime="application/pdf"
             )
+
