@@ -788,7 +788,7 @@ elif page == "🎯 تقرير الاعلانات":
         )
 
          # إضافة الاسم في الأسفل
-        st.markdown("<p style='text-align: center; color: black; font-size: 16px; font-weight: bold;'>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: red; font-size: 14px; font-weight: bold;'>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
         st.markdown("---")
 
 
@@ -1074,5 +1074,6 @@ elif page == "🎯 تقرير الاعلانات":
      # إضافة الاسم في الأسفل
         st.markdown("---")
         st.markdown("<p style='text-align: center; color: gray;'>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
+
 
 
