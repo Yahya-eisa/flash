@@ -933,7 +933,7 @@ elif page == "🎯 تقرير الاعلانات":
                     st.warning(f"⚠️ عمود '{col}' غير موجود في ملف المنتجات. سيتم وضع قيمة 0.")
                     products_df[col] = 0
 
-            # بناء التقرير الكامل
+            # بناء التقرير الكامل - دمج الحملات لنفس المنتج
             report_rows = []
             for _, campaign_row in campaigns_with_products.iterrows():
                 campaign_name = campaign_row['campaign_name']
@@ -947,7 +947,6 @@ elif page == "🎯 تقرير الاعلانات":
                         product_data = products_df[products_df['اسم المنتج'] == product_name]
                         
                         if not product_data.empty:
-                            # أخذ أول صف (في حالة تكرار المنتج)
                             product_row = product_data.iloc[0]
                             total_orders = int(product_row.get('إجمالي الأوردرات', 0))
                             delivered_orders = int(product_row.get('تم التسليم', 0))
@@ -957,28 +956,42 @@ elif page == "🎯 تقرير الاعلانات":
                             delivered_orders = 0
                             returned_orders = 0
                         
-                        # حساب سعر الأوردر
-                        if delivered_orders > 0:
-                            order_price = campaign_cost / delivered_orders
-                        else:
-                            order_price = None
-                        
                         report_rows.append({
-                            'اسم الحملة': campaign_name,
                             'اسم المنتج': product_name,
-                            'إجمالي الصرف': round(campaign_cost, 2),
+                            'إجمالي الصرف': campaign_cost,
                             'عدد الإعلانات': campaign_ads_count,
                             'إجمالي الأوردرات': total_orders,
                             'تم التسليم': delivered_orders,
-                            'المرتجع': returned_orders,
-                            'سعر الأوردر المسلم': round(order_price, 2) if order_price else None
+                            'المرتجع': returned_orders
                         })
             
             if report_rows:
-                final_report = pd.DataFrame(report_rows)
+                # تحويل لـ DataFrame
+                temp_df = pd.DataFrame(report_rows)
+                
+                # دمج الحملات لنفس المنتج (جمع الصرف والإعلانات)
+                final_report = temp_df.groupby('اسم المنتج', as_index=False).agg({
+                    'إجمالي الصرف': 'sum',
+                    'عدد الإعلانات': 'sum',
+                    'إجمالي الأوردرات': 'first',  # بيانات المنتج ثابتة
+                    'تم التسليم': 'first',
+                    'المرتجع': 'first'
+                })
+                
+                # حساب سعر الأوردر بعد الدمج
+                final_report['سعر الأوردر المسلم'] = final_report.apply(
+                    lambda row: round(row['إجمالي الصرف'] / row['تم التسليم'], 2) 
+                    if row['تم التسليم'] > 0 else None, 
+                    axis=1
+                )
+                
+                # تدوير الأرقام
+                final_report['إجمالي الصرف'] = final_report['إجمالي الصرف'].round(2)
+                
+                # ترتيب حسب الصرف
                 final_report = final_report.sort_values('إجمالي الصرف', ascending=False)
                 
-                st.success(f"✅ تم إنشاء تقرير شامل لـ {len(final_report)} سجل (حملة × منتج)")
+                st.success(f"✅ تم إنشاء تقرير شامل لـ {len(final_report)} منتج")
                 st.dataframe(final_report, use_container_width=True, height=400)
             else:
                 final_report = pd.DataFrame()
