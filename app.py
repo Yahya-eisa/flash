@@ -887,7 +887,7 @@ elif page == "🎯 تقرير الاعلانات":
                         )
                     with col2:
                         no_result = st.checkbox(
-                            "حملة عامة",
+                            "لا توجد اوردرات",
                             key=f"nores_{i}"
                         )
 
@@ -933,8 +933,10 @@ elif page == "🎯 تقرير الاعلانات":
                     st.warning(f"⚠️ عمود '{col}' غير موجود في ملف المنتجات. سيتم وضع قيمة 0.")
                     products_df[col] = 0
 
-            # بناء التقرير الكامل - دمج الحملات لنفس المنتج
+            # بناء التقرير الكامل - دمج الحملات لنفس المنتج + حفظ أسماء الحملات
             report_rows = []
+            product_campaigns = {}  # لحفظ أسماء الحملات لكل منتج
+
             for _, campaign_row in campaigns_with_products.iterrows():
                 campaign_name = campaign_row['campaign_name']
                 campaign_cost = campaign_row['cost']
@@ -943,6 +945,11 @@ elif page == "🎯 تقرير الاعلانات":
                 
                 if isinstance(products_list, list) and len(products_list) > 0:
                     for product_name in products_list:
+                        # حفظ اسم الحملة لكل منتج
+                        if product_name not in product_campaigns:
+                            product_campaigns[product_name] = []
+                        product_campaigns[product_name].append(campaign_name)
+                        
                         # البحث عن بيانات المنتج
                         product_data = products_df[products_df['اسم المنتج'] == product_name]
                         
@@ -978,6 +985,11 @@ elif page == "🎯 تقرير الاعلانات":
                     'المرتجع': 'first'
                 })
                 
+                # إضافة عمود أسماء الحملات
+                final_report['اسماء الحملات'] = final_report['اسم المنتج'].map(
+                    lambda product: ' | '.join(product_campaigns.get(product, []))
+                )
+                
                 # حساب سعر الأوردر بعد الدمج
                 final_report['سعر الأوردر المسلم'] = final_report.apply(
                     lambda row: round(row['إجمالي الصرف'] / row['تم التسليم'], 2) 
@@ -987,6 +999,18 @@ elif page == "🎯 تقرير الاعلانات":
                 
                 # تدوير الأرقام
                 final_report['إجمالي الصرف'] = final_report['إجمالي الصرف'].round(2)
+                
+                # ترتيب الأعمدة المطلوب
+                final_report = final_report[[
+                    'اسم المنتج',
+                    'اسماء الحملات',
+                    'إجمالي الصرف',
+                    'عدد الإعلانات',
+                    'إجمالي الأوردرات',
+                    'تم التسليم',
+                    'المرتجع',
+                    'سعر الأوردر المسلم'
+                ]]
                 
                 # ترتيب حسب الصرف
                 final_report = final_report.sort_values('إجمالي الصرف', ascending=False)
@@ -1000,7 +1024,7 @@ elif page == "🎯 تقرير الاعلانات":
         # ========== عرض الحملات العامة (بدون منتجات) ==========
         if not campaigns_no_result.empty:
             st.divider()
-            st.subheader("⚠️ حملات عامة (لا توجد منتجات مرتبطة)")
+            st.subheader("⚠️ حملات لا توجد لها اوردرات")
             df_no_res = campaigns_no_result[['campaign_name', 'cost', 'ads_count']].copy()
             df_no_res.rename(columns={
                 'campaign_name': 'اسم الحملة',
@@ -1019,7 +1043,7 @@ elif page == "🎯 تقرير الاعلانات":
             if not final_report.empty:
                 final_report.to_excel(writer, index=False, sheet_name="التقرير الشامل")
             if not df_no_res.empty:
-                df_no_res.to_excel(writer, index=False, sheet_name="حملات عامة")
+                df_no_res.to_excel(writer, index=False, sheet_name="لا توجد اوردرات")
 
         tz = pytz.timezone('Africa/Cairo')
         today = datetime.datetime.now(tz).strftime("%Y-%m-%d")
@@ -1056,6 +1080,4 @@ elif page == "🎯 تقرير الاعلانات":
         if st.button("🔄 البدء من جديد"):
             st.session_state.clear()
             st.rerun()
-
-
 
