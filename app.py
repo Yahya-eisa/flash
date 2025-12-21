@@ -657,7 +657,7 @@ elif page == "📋 تقرير المنتجات (إجمالي + مرتجع)":
 # ==================== الصفحة السادسة ====================
 elif page == "👥 إجمالي نسب الأوردرات":
     st.header("👥 إجمالي نسب الأوردرات")
-    st.markdown("ارفع الملف علشان تشوف كل موظف: إجمالي، تم التسليم، تم التأكيد، ملغي 🔥")
+    st.markdown("ارفع الملف علشان تشوف كل موظف: إجمالي، تم التسليم، مرتجع 🔥")
     
     uploaded_file = st.file_uploader("📤 ارفع ملف Excel", type=["xlsx"], key="moderators_report_file")
     
@@ -717,8 +717,8 @@ elif page == "👥 إجمالي نسب الأوردرات":
                 
                 total_all = report_df['إجمالي الأوردرات'].sum()
                 delivered_all = report_df['تم التسليم'].sum()
-                pending_all = report_df['تم التأكيد'].sum()
-                cancelled_all = report_df['ملغي'].sum()
+                pending_all = report_df['مرتجع'].sum()
+               
                 
                 total_row = pd.DataFrame([{
                     'اسم الموظف': '📊 الإجمالي الكلي',
@@ -1048,4 +1048,5 @@ elif page == "🎯 تقرير الاعلانات":
         if st.button("🔄 البدء من جديد"):
             st.session_state.clear()
             st.rerun()
+
 
