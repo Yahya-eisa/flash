@@ -1057,27 +1057,12 @@ elif page == "🎯 تقرير الاعلانات":
             type="primary"
         )
 
-        # ========== إحصائيات سريعة ==========
-        if not final_report.empty:
-            st.divider()
-            st.subheader("📊 إحصائيات سريعة")
-            
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                total_spend = final_report['إجمالي الصرف'].sum()
-                st.metric("إجمالي الصرف الكلي", f"{total_spend:,.2f}")
-            with col2:
-                total_orders = final_report['إجمالي الأوردرات'].sum()
-                st.metric("إجمالي الأوردرات", int(total_orders))
-            with col3:
-                total_delivered = final_report['تم التسليم'].sum()
-                st.metric("إجمالي المسلم", int(total_delivered))
-            with col4:
-                avg_order_price = final_report['سعر الأوردر المسلم'].mean()
-                st.metric("متوسط سعر الأوردر", f"{avg_order_price:,.2f}" if pd.notna(avg_order_price) else "N/A")
-
+       
         st.markdown("---")
         if st.button("🔄 البدء من جديد"):
             st.session_state.clear()
             st.rerun()
 
+     # إضافة الاسم في الأسفل
+        st.markdown("---")
+        st.markdown("<p style='text-align: center; color: gray;'>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
