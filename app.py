@@ -698,34 +698,31 @@ elif page == "👥 إجمالي نسب الأوردرات":
                 report_data = []
                 for employee in df_clean[employee_col].unique():
                     employee_orders = df_clean[df_clean[employee_col] == employee]
-                                    
-                total = len(employee_orders)
-                delivered = len(employee_orders[employee_orders[status_col] == 'تم التسليم'])
-                returned = len(employee_orders[employee_orders[status_col] == 'مرتجع'])
-                
-                report_data.append({
-                    'اسم الموظف': employee,
-                    'إجمالي الأوردرات': total,
-                    'تم التسليم': delivered,
-                    'إجمالي المرتجع': returned,
-                    'نسبة التسليم %': round((delivered / total * 100), 2) if total > 0 else 0
-                })
-
+                    
+                    total = len(employee_orders)
+                    delivered = len(employee_orders[employee_orders[status_col] == 'تم التسليم'])
+                    returned = len(employee_orders[employee_orders[status_col] == 'مرتجع'])
+                    
+                    report_data.append({
+                        'اسم الموظف': employee,
+                        'إجمالي الأوردرات': total,
+                        'تم التسليم': delivered,
+                        'إجمالي المرتجع': returned,
+                        'نسبة التسليم %': round((delivered / total * 100), 2) if total > 0 else 0
+                    })
                 
                 report_df = pd.DataFrame(report_data)
                 report_df = report_df.sort_values('إجمالي الأوردرات', ascending=False)
                 
                 total_all = report_df['إجمالي الأوردرات'].sum()
                 delivered_all = report_df['تم التسليم'].sum()
-                pending_all = report_df['مرتجع'].sum()
-               
+                returned_all = report_df['إجمالي المرتجع'].sum()
                 
                 total_row = pd.DataFrame([{
                     'اسم الموظف': '📊 الإجمالي الكلي',
                     'إجمالي الأوردرات': total_all,
                     'تم التسليم': delivered_all,
-                    'تم التأكيد': pending_all,
-                    'ملغي': cancelled_all,
+                    'إجمالي المرتجع': returned_all,
                     'نسبة التسليم %': round((delivered_all / total_all * 100), 2) if total_all > 0 else 0
                 }])
                 
@@ -752,16 +749,14 @@ elif page == "👥 إجمالي نسب الأوردرات":
                 st.divider()
                 st.subheader("🏆 الإحصائيات الكلية")
                 
-                col1, col2, col3, col4, col5 = st.columns(5)
+                col1, col2, col3, col4 = st.columns(4)
                 with col1:
                     st.metric("إجمالي الأوردرات", total_all)
                 with col2:
                     st.metric("تم التسليم", delivered_all)
                 with col3:
-                    st.metric("تم التأكيد", pending_all)
+                    st.metric("إجمالي المرتجع", returned_all)
                 with col4:
-                    st.metric("ملغي", cancelled_all)
-                with col5:
                     success_rate = round((delivered_all / total_all * 100), 2) if total_all > 0 else 0
                     st.metric("نسبة النجاح", f"{success_rate}%")
             else:
@@ -1048,5 +1043,6 @@ elif page == "🎯 تقرير الاعلانات":
         if st.button("🔄 البدء من جديد"):
             st.session_state.clear()
             st.rerun()
+
 
 
