@@ -767,7 +767,11 @@ elif page == "👥 إجمالي نسب الأوردرات":
 elif page == "🎯 تقرير الاعلانات":
     st.header("🎯 تقرير الاعلانات")
     st.markdown("---")
-
+ 
+    # إضافة الاسم في الأسفل
+    st.markdown("<p style='text-align: center; color: gray; font-size: 12px;'>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
+    st.markdown("---")
+    
     if st.session_state.current_step == 'upload':
         st.subheader("📁 رفع ملفات الإعلانات (Facebook, TikTok, ...)")
         campaigns_files = st.file_uploader(
@@ -1066,3 +1070,4 @@ elif page == "🎯 تقرير الاعلانات":
      # إضافة الاسم في الأسفل
         st.markdown("---")
         st.markdown("<p style='text-align: center; color: gray;'>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
+
