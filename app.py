@@ -698,20 +698,19 @@ elif page == "👥 إجمالي نسب الأوردرات":
                 report_data = []
                 for employee in df_clean[employee_col].unique():
                     employee_orders = df_clean[df_clean[employee_col] == employee]
-                    
-                    total = len(employee_orders)
-                    delivered = len(employee_orders[employee_orders[status_col] == 'تم التسليم'])
-                    pending = len(employee_orders[employee_orders[status_col] == 'تم التأكيد'])
-                    cancelled = len(employee_orders[employee_orders[status_col] == 'ملغي قبل الشحن'])
-                    
-                    report_data.append({
-                        'اسم الموظف': employee,
-                        'إجمالي الأوردرات': total,
-                        'تم التسليم': delivered,
-                        'تم التأكيد': pending,
-                        'ملغي': cancelled,
-                        'نسبة التسليم %': round((delivered / total * 100), 2) if total > 0 else 0
-                    })
+                                    
+                total = len(employee_orders)
+                delivered = len(employee_orders[employee_orders[status_col] == 'تم التسليم'])
+                returned = len(employee_orders[employee_orders[status_col] == 'مرتجع'])
+                
+                report_data.append({
+                    'اسم الموظف': employee,
+                    'إجمالي الأوردرات': total,
+                    'تم التسليم': delivered,
+                    'إجمالي المرتجع': returned,
+                    'نسبة التسليم %': round((delivered / total * 100), 2) if total > 0 else 0
+                })
+
                 
                 report_df = pd.DataFrame(report_data)
                 report_df = report_df.sort_values('إجمالي الأوردرات', ascending=False)
@@ -1049,3 +1048,4 @@ elif page == "🎯 تقرير الاعلانات":
         if st.button("🔄 البدء من جديد"):
             st.session_state.clear()
             st.rerun()
+
