@@ -768,9 +768,7 @@ elif page == "🎯 تقرير الاعلانات":
     st.header("🎯 تقرير الاعلانات")
     st.markdown("---")
  
-    # إضافة الاسم في الأسفل
-    st.markdown("<p style='text-align: center; color: gray; font-size: 12px;'>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
-    st.markdown("---")
+
     
     if st.session_state.current_step == 'upload':
         st.subheader("📁 رفع ملفات الإعلانات (Facebook, TikTok, ...)")
@@ -789,6 +787,12 @@ elif page == "🎯 تقرير الاعلانات":
             key="products"
         )
 
+         # إضافة الاسم في الأسفل
+        st.markdown("<p style='text-align: center; color: black; font-size: 16px; font-weight: bold;'>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
+        st.markdown("---")
+
+
+        
         if campaigns_files and products_files and st.button("🚀 ابدأ المعالجة", type="primary"):
             all_campaigns = []
             for f in campaigns_files:
@@ -1070,4 +1074,5 @@ elif page == "🎯 تقرير الاعلانات":
      # إضافة الاسم في الأسفل
         st.markdown("---")
         st.markdown("<p style='text-align: center; color: gray;'>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
+
 
