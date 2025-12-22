@@ -221,8 +221,8 @@ def extract_campaign_data(df, file_name):
     st.success(f"✅ {file_name} | اسم الحملة: {campaign_col} | الصرف من: {cost_col}")
     return out
 
-st.set_page_config(page_title="🔥 FLASH Orders System", layout="wide")
-st.title("🔥 FLASH Orders System")
+st.set_page_config(page_title="🔥 ECOMERG Orders System", layout="wide")
+st.title("🔥 ECOMERG Orders System")
 
 if 'campaigns_df' not in st.session_state:
     st.session_state.campaigns_df = None
@@ -240,7 +240,7 @@ page = st.sidebar.radio(
     [
         "🔍 مراجعة الأوردرات المكررة",
         "📦 المشتريات المجمعة",
-        "🚚 Flash Orders Processor",
+        "🚚 ECOMERG Orders Processor",
         "📊 عدد الأوردرات لكل منتج",
         "📋 تقرير المنتجات (إجمالي + مرتجع)",
         "👥 إجمالي نسب الأوردرات",
@@ -396,8 +396,8 @@ elif page == "📦 المشتريات المجمعة":
                 st.error("❌ مش لاقي أعمدة المنتج أو الكمية في الملف!")
 
 # ==================== الصفحة الثالثة ====================
-elif page == "🚚 Flash Orders Processor":
-    st.header("🚚 Flash Orders Processor")
+elif page == "🚚 ECOMERG Orders Processor":
+    st.header("🚚 ECOMERG Orders Processor")
     st.markdown("....ارفع الملفات يا رايق علشان تستلم الشيت")
     
     uploaded_files = st.file_uploader(
@@ -1075,6 +1075,7 @@ elif page == "🎯 تقرير الاعلانات":
      # إضافة الاسم في الأسفل
         st.markdown("---")
         st.markdown("<p style='text-align: center; color: gray;'>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
+
 
 
 
