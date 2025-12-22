@@ -17,50 +17,10 @@ from difflib import SequenceMatcher
 
 # ---------- Arabic helpers ----------
 def fix_arabic(text):
-    """للنصوص العادية القصيرة"""
     if pd.isna(text):
         return ""
     reshaped = arabic_reshaper.reshape(str(text))
     return get_display(reshaped)
-
-def reverse_arabic_lines_in_cell(text, max_chars=35):
-    """عكس ترتيب السطور في الخلية للنصوص الطويلة"""
-    if pd.isna(text):
-        return ""
-    text_str = str(text).strip()
-    
-    # لو النص قصير، ارجعه عادي
-    if len(text_str) <= max_chars:
-        reshaped = arabic_reshaper.reshape(text_str)
-        return get_display(reshaped)
-    
-    # تقسيم النص لسطور
-    words = text_str.split(' ')
-    lines = []
-    current_line = ""
-    
-    for word in words:
-        if len(current_line + " " + word) <= max_chars:
-            current_line += (" " + word if current_line else word)
-        else:
-            if current_line:
-                lines.append(current_line)
-            current_line = word
-    
-    if current_line:
-        lines.append(current_line)
-    
-    # اعكس ترتيب السطور
-    lines.reverse()
-    
-    # طبّق fix_arabic على كل سطر
-    fixed_lines = []
-    for line in lines:
-        reshaped = arabic_reshaper.reshape(line)
-        fixed_lines.append(get_display(reshaped))
-    
-    # استخدم مسافات غير قابلة للكسر مع br
-    return '&#160;' * 200 + '<br/>'.join(fixed_lines)
 
 def fill_down(series):
     return series.ffill()
@@ -239,7 +199,7 @@ def df_to_pdf_table(df, title="FLASH", group_name="FLASH"):
         fontName='Arabic-Bold', 
         fontSize=9,
         alignment=1,
-        leading=14,
+        leading=12,
         wordWrap='CJK'
     )
     
@@ -261,26 +221,11 @@ def df_to_pdf_table(df, title="FLASH", group_name="FLASH"):
         wordWrap='CJK'
     )
 
-    # الأعمدة اللي محتاجة عكس السطور (النصوص الطويلة)
-    long_text_cols = {'اسم الصنف', 'الملاحظات', 'العنوان'}
-    
     data = []
-    # Headers
     data.append([Paragraph(fix_arabic(col), styleBH) for col in df.columns])
-    
-    # Data rows مع عكس السطور للأعمدة الطويلة
     for _, row in df.iterrows():
-        row_data = []
-        for col in df.columns:
-            cell_value = "" if pd.isna(row[col]) else str(row[col])
-            
-            # استخدام reverse_arabic_lines_in_cell للأعمدة الطويلة
-            if col in long_text_cols:
-                row_data.append(Paragraph(reverse_arabic_lines_in_cell(cell_value), styleN))
-            else:
-                row_data.append(Paragraph(fix_arabic(cell_value), styleN))
-        
-        data.append(row_data)
+        data.append([Paragraph(fix_arabic("" if pd.isna(row[col]) else str(row[col])), styleN)
+                     for col in df.columns])
 
     col_widths_cm = [2, 2, 1.5, 3, 2, 3, 1.5, 1.5, 2.5, 3.5, 1.5, 1.5, 1, 1.5]
     col_widths = [max(c * 28.35, 15) for c in col_widths_cm]
