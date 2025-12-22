@@ -398,7 +398,43 @@ elif page == "📦 المشتريات المجمعة":
 # ==================== الصفحة الثالثة ====================
 elif page == "🚚 ECOMERG Orders Processor":
     st.header("🚚 ECOMERG Orders Processor")
-    st.markdown("....ارفع الملفات يا رايق علشان تستلم الشيت")
+    st.markdown("ارفع الملفات يا رايق علشان تستلم الشيت...")
+    
+    # قائمة منسدلة لاختيار المجموعة
+    group_options = [
+        "flash",
+        "khosomaat",
+        "mevven",
+        "dealaat",
+        "souq",
+        "kuwait mall",
+        "mini",
+        "outlet",
+        "trend",
+        "other"
+    ]
+    
+    group_name = st.selectbox(
+        "🏷️ اختر اسم المجموعة:",
+        options=group_options,
+        index=0,
+        help="اختر المجموعة المناسبة من القائمة"
+    )
+    
+    # عرض معلومات عن تصميم كل مجموعة
+    st.info(f"""
+    🎨 **تصميم المجموعات:**
+    - **FLASH**: أحمر فاتح | خط 11
+    - **KHOSOMAAT**: تركواز | خط 10
+    - **MEVVEN**: ذهبي | خط 12
+    - **DEALAAT**: أخضر نعناعي | خط 10
+    - **SOUQ**: وردي | خط 11
+    - **KUWAIT MALL**: بنفسجي فاتح | خط 12
+    - **MINI**: برتقالي سالمون | خط 9
+    - **OUTLET**: أزرق مخضر | خط 10
+    - **TREND**: بنفسجي غامق | خط 11
+    - **OTHER**: رمادي | خط 10
+    """)
     
     uploaded_files = st.file_uploader(
         "Upload Excel files (.xlsx)",
@@ -453,22 +489,23 @@ elif page == "🚚 ECOMERG Orders Processor":
                 leftMargin=15, rightMargin=15, topMargin=15, bottomMargin=15
             )
             elements = []
-            for group_name, group_df in merged_df.groupby('المنطقة'):
-                elements.extend(df_to_pdf_table(group_df, title=str(group_name)))
+            for area_name, group_df in merged_df.groupby('المنطقة'):
+                elements.extend(df_to_pdf_table(group_df, title=str(area_name), group_name=group_name))
             doc.build(elements)
             buffer.seek(0)
             
             tz = pytz.timezone('Africa/Cairo')
             today = datetime.datetime.now(tz).strftime("%Y-%m-%d")
-            file_name = f"سواقين فلاش - {today}.pdf"
+            file_name = f"سواقين {group_name.upper()} - {today}.pdf"
             
-            st.success("✅تم تجهيز ملف PDF ✅")
+            st.success(f"✅ تم تجهيز ملف PDF لمجموعة {group_name.upper()} ✅")
             st.download_button(
                 label="⬇️⬇️ تحميل ملف PDF",
                 data=buffer.getvalue(),
                 file_name=file_name,
                 mime="application/pdf"
             )
+
 
 # ==================== الصفحة الرابعة ====================
 elif page == "📊 عدد الأوردرات لكل منتج":
@@ -1075,6 +1112,7 @@ elif page == "🎯 تقرير الاعلانات":
      # إضافة الاسم في الأسفل
         st.markdown("---")
         st.markdown("<p style='text-align: center; color: gray;'>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
+
 
 
 
