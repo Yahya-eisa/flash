@@ -51,10 +51,13 @@ def reverse_arabic_lines_in_cell(text, max_chars=35):
         lines.reverse()
         
         # طبّق fix_arabic على كل سطر لوحده
-        fixed_lines = [arabic_reshaper.reshape(line) for line in lines]
-        fixed_lines = [get_display(line) for line in fixed_lines]
+        fixed_lines = []
+        for line in lines:
+            reshaped = arabic_reshaper.reshape(line)
+            fixed_lines.append(get_display(reshaped))
         
-        return '\n'.join(fixed_lines)
+        # استخدم <br/> بدل \n
+        return '<br/>'.join(fixed_lines)
     else:
         # للنصوص القصيرة استخدم fix_arabic العادي
         reshaped = arabic_reshaper.reshape(text_str)
