@@ -569,7 +569,9 @@ elif page == "🚚 ECOMERG Orders Processor":
             
             tz = pytz.timezone('Africa/Cairo')
             today = datetime.datetime.now(tz).strftime("%Y-%m-%d")
-            file_name = f"سواقين {group_name.upper()} - {today}.pdf"
+            # إزالة المسافات من اسم المجموعة
+            safe_group_name = group_name.upper().replace(' ', '_')
+            file_name = f"سواقين {safe_group_name} - {today}.pdf"
             
             st.success(f"✅ تم تجهيز ملف PDF لمجموعة {group_name.upper()} ✅")
             st.download_button(
