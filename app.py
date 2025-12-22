@@ -29,39 +29,38 @@ def reverse_arabic_lines_in_cell(text, max_chars=35):
         return ""
     text_str = str(text).strip()
     
-    # لو النص طويل أكثر من max_chars حرف
-    if len(text_str) > max_chars:
-        # تقسيم النص لسطور
-        words = text_str.split(' ')
-        lines = []
-        current_line = ""
-        
-        for word in words:
-            if len(current_line + " " + word) <= max_chars:
-                current_line += (" " + word if current_line else word)
-            else:
-                if current_line:
-                    lines.append(current_line)
-                current_line = word
-        
-        if current_line:
-            lines.append(current_line)
-        
-        # اعكس ترتيب السطور (الأخير يبقى الأول)
-        lines.reverse()
-        
-        # طبّق fix_arabic على كل سطر لوحده
-        fixed_lines = []
-        for line in lines:
-            reshaped = arabic_reshaper.reshape(line)
-            fixed_lines.append(get_display(reshaped))
-        
-        # استخدم <br/> بدل \n
-        return '<br/>'.join(fixed_lines)
-    else:
-        # للنصوص القصيرة استخدم fix_arabic العادي
+    # لو النص قصير، ارجعه عادي
+    if len(text_str) <= max_chars:
         reshaped = arabic_reshaper.reshape(text_str)
         return get_display(reshaped)
+    
+    # تقسيم النص لسطور
+    words = text_str.split(' ')
+    lines = []
+    current_line = ""
+    
+    for word in words:
+        if len(current_line + " " + word) <= max_chars:
+            current_line += (" " + word if current_line else word)
+        else:
+            if current_line:
+                lines.append(current_line)
+            current_line = word
+    
+    if current_line:
+        lines.append(current_line)
+    
+    # اعكس ترتيب السطور
+    lines.reverse()
+    
+    # طبّق fix_arabic على كل سطر
+    fixed_lines = []
+    for line in lines:
+        reshaped = arabic_reshaper.reshape(line)
+        fixed_lines.append(get_display(reshaped))
+    
+    # استخدم مسافات غير قابلة للكسر مع br
+    return '&#160;' * 200 + '<br/>'.join(fixed_lines)
 
 def fill_down(series):
     return series.ffill()
