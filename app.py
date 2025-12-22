@@ -398,7 +398,7 @@ elif page == "📦 المشتريات المجمعة":
 # ==================== الصفحة الثالثة ====================
 elif page == "🚚 ECOMERG Orders Processor":
     st.header("🚚 ECOMERG Orders Processor")
-    st.markdown("ارفع الملفات يا رايق علشان تستلم الشيت...")
+    st.markdown("ارفع الملفات علشان تستلم الشيت...")
     
     # قائمة منسدلة لاختيار المجموعة
     group_options = [
@@ -1099,6 +1099,7 @@ elif page == "🎯 تقرير الاعلانات":
      # إضافة الاسم في الأسفل
         st.markdown("---")
         st.markdown("<p style='text-align: center; color: gray;'>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
+
 
 
 
