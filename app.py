@@ -17,21 +17,27 @@ from difflib import SequenceMatcher
 
 # ---------- Arabic helpers ----------
 def fix_arabic(text):
+    """للنصوص العادية القصيرة"""
+    if pd.isna(text):
+        return ""
+    reshaped = arabic_reshaper.reshape(str(text))
+    return get_display(reshaped)
+
+def reverse_arabic_lines_in_cell(text, max_chars=35):
+    """عكس ترتيب السطور في الخلية للنصوص الطويلة"""
     if pd.isna(text):
         return ""
     text_str = str(text).strip()
     
-    # تقسيم النص يدوياً كل 35 حرف (حسب عرض العمود)
-    max_chars_per_line = 35
-    
-    if len(text_str) > max_chars_per_line:
+    # لو النص طويل أكثر من max_chars حرف
+    if len(text_str) > max_chars:
         # تقسيم النص لسطور
-        lines = []
         words = text_str.split(' ')
+        lines = []
         current_line = ""
         
         for word in words:
-            if len(current_line + " " + word) <= max_chars_per_line:
+            if len(current_line + " " + word) <= max_chars:
                 current_line += (" " + word if current_line else word)
             else:
                 if current_line:
@@ -41,10 +47,8 @@ def fix_arabic(text):
         if current_line:
             lines.append(current_line)
         
-        # عكس ترتيب السطور (الأخير يبقى الأول)
+        # اعكس ترتيب السطور (الأخير يبقى الأول)
         lines.reverse()
-        
-        # دمج السطور
         text_str = '\n'.join(lines)
     
     reshaped = arabic_reshaper.reshape(text_str)
@@ -222,13 +226,12 @@ def df_to_pdf_table(df, title="FLASH", group_name="FLASH"):
     group_key = group_name.lower().strip()
     style_config = group_styles.get(group_key, group_styles["other"])
 
-    # التعديل المهم: تغيير wordWrap وإضافة leading
     styleN = ParagraphStyle(
         name='Normal', 
         fontName='Arabic-Bold', 
         fontSize=9,
         alignment=1,
-        leading=12,
+        leading=14,
         wordWrap='CJK'
     )
     
@@ -250,11 +253,26 @@ def df_to_pdf_table(df, title="FLASH", group_name="FLASH"):
         wordWrap='CJK'
     )
 
+    # الأعمدة اللي محتاجة عكس السطور (النصوص الطويلة)
+    long_text_cols = {'اسم الصنف', 'الملاحظات', 'العنوان'}
+    
     data = []
+    # Headers
     data.append([Paragraph(fix_arabic(col), styleBH) for col in df.columns])
+    
+    # Data rows مع عكس السطور للأعمدة الطويلة
     for _, row in df.iterrows():
-        data.append([Paragraph(fix_arabic("" if pd.isna(row[col]) else str(row[col])), styleN)
-                     for col in df.columns])
+        row_data = []
+        for col in df.columns:
+            cell_value = "" if pd.isna(row[col]) else str(row[col])
+            
+            # استخدام reverse_arabic_lines_in_cell للأعمدة الطويلة
+            if col in long_text_cols:
+                row_data.append(Paragraph(reverse_arabic_lines_in_cell(cell_value), styleN))
+            else:
+                row_data.append(Paragraph(fix_arabic(cell_value), styleN))
+        
+        data.append(row_data)
 
     col_widths_cm = [2, 2, 1.5, 3, 2, 3, 1.5, 1.5, 2.5, 3.5, 1.5, 1.5, 1, 1.5]
     col_widths = [max(c * 28.35, 15) for c in col_widths_cm]
@@ -597,7 +615,6 @@ elif page == "🚚 ECOMERG Orders Processor":
             
             tz = pytz.timezone('Africa/Cairo')
             today = datetime.datetime.now(tz).strftime("%Y-%m-%d")
-            # إزالة المسافات من اسم المجموعة
             safe_group_name = group_name.upper().replace(' ', '_')
             file_name = f"سواقين {safe_group_name} - {today}.pdf"
             
@@ -662,7 +679,7 @@ elif page == "📊 عدد الأوردرات لكل منتج":
                 
                 tz = pytz.timezone('Africa/Cairo')
                 today = datetime.datetime.now(tz).strftime("%Y-%m-%d")
-                file_name = f"عدد الأوردرات لكل منتج - {today}.xlsx"
+                file_name = f"عدد الأوردرات - {today}.xlsx"
                 
                 st.download_button(
                     label="⬇️ تحميل التقرير",
@@ -670,324 +687,5 @@ elif page == "📊 عدد الأوردرات لكل منتج":
                     file_name=file_name,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-                
-                st.divider()
-                st.subheader("📈 إحصائيات سريعة")
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("أكثر منتج طلباً", orders_per_product.iloc[0]['اسم المنتج'])
-                with col2:
-                    st.metric("عدد أوردراته", int(orders_per_product.iloc[0]['عدد الأوردرات']))
-                with col3:
-                    st.metric("نسبته من الإجمالي", f"{orders_per_product.iloc[0]['النسبة %']}%")
             else:
-                st.error("❌ مش لاقي عمود المنتج أو رقم الأوردر في الملف!")
-                st.info(f"الأعمدة الموجودة: {', '.join(merged_df.columns.tolist())}")
-
-# ==================== الصفحة الخامسة ====================
-elif page == "📋 تقرير المنتجات (إجمالي + مرتجع)":
-    st.header("📋 تقرير المنتجات (إجمالي عدد الأوردرات + تم التسليم + المرتجع)")
-    st.markdown("ارفع الملف علشان تشوف لكل منتج: إجمالي عدد الأوردرات، عدد أوردرات تم التسليم، وعدد أوردرات المرتجع (بدون المعلق/تم التأكيد/ملغي قبل الشحن) 🔥")
-    
-    uploaded_file = st.file_uploader("📤 ارفع ملف Excel", type=["xlsx"], key="products_report_file")
-    
-    if uploaded_file:
-        xls = pd.read_excel(uploaded_file, sheet_name=None, engine="openpyxl", dtype=str)
-        
-        all_frames = []
-        for _, df in xls.items():
-            df = df.dropna(how="all")
-            all_frames.append(df)
-        
-        if all_frames:
-            merged_df = pd.concat(all_frames, ignore_index=True, sort=False)
-            merged_df = replace_muaaqal_with_confirm_safe(merged_df)
-            merged_df = clean_and_fill_data(merged_df)
-            
-            product_col = None
-            order_col = None
-            status_col = None
-            
-            for col in merged_df.columns:
-                if 'منتج' in str(col) or 'صنف' in str(col):
-                    product_col = col
-                elif 'كود' in str(col) and 'اوردر' in str(col).lower():
-                    order_col = col
-                elif 'حالة' in str(col) and 'اوردر' in str(col).lower():
-                    status_col = col
-            
-            if product_col and order_col and status_col:
-                df_clean = merged_df[[order_col, product_col, status_col]].copy()
-                
-                df_clean = df_clean.dropna(subset=[product_col, order_col, status_col])
-                df_clean[order_col] = df_clean[order_col].astype(str).str.strip()
-                df_clean[product_col] = df_clean[product_col].astype(str).str.strip()
-                df_clean[status_col] = df_clean[status_col].astype(str).str.strip()
-                
-                df_clean = df_clean.drop_duplicates(subset=[order_col, product_col, status_col])
-                
-                states_to_exclude = ['تم التأكيد', 'معلق', 'ملغي قبل الشحن']
-                df_clean = df_clean[~df_clean[status_col].isin(states_to_exclude)]
-                
-                delivered_status = 'تم التسليم'
-                return_status = 'مرتجع'
-                
-                report_data = []
-                
-                for product in df_clean[product_col].unique():
-                    product_orders = df_clean[df_clean[product_col] == product]
-                    
-                    total_orders = product_orders[order_col].nunique()
-                    delivered_orders = product_orders[product_orders[status_col] == delivered_status][order_col].nunique()
-                    returned_orders = product_orders[product_orders[status_col] == return_status][order_col].nunique()
-                    
-                    report_data.append({
-                        'اسم المنتج': product,
-                        'إجمالي الأوردرات': total_orders,
-                        'تم التسليم': delivered_orders,
-                        'إجمالي المرتجع': returned_orders
-                    })
-                
-                report_df = pd.DataFrame(report_data)
-                report_df = report_df.sort_values('إجمالي الأوردرات', ascending=False)
-                
-                st.success(f"✅ تم تحليل {len(report_df)} منتج (عدد أوردرات، مش عدد قطع)")
-                st.dataframe(report_df, use_container_width=True, hide_index=True)
-                
-                buffer = BytesIO()
-                report_df.to_excel(buffer, sheet_name='تقرير المنتجات', index=False, engine='openpyxl')
-                buffer.seek(0)
-                
-                tz = pytz.timezone('Africa/Cairo')
-                today = datetime.datetime.now(tz).strftime("%Y-%m-%d")
-                file_name = f"تقرير المنتجات - إجمالي-تسليم-مرتجع - {today}.xlsx"
-                
-                st.download_button(
-                    label="📥 تحميل تقرير المنتجات (إجمالي + تم التسليم + مرتجع)",
-                    data=buffer.getvalue(),
-                    file_name=file_name,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-                
-                st.divider()
-                st.subheader("📊 إحصائيات عامة")
-                
-                total_orders_all = report_df['إجمالي الأوردرات'].sum()
-                total_delivered_all = report_df['تم التسليم'].sum()
-                total_returns_all = report_df['إجمالي المرتجع'].sum()
-                
-                delivered_rate = round((total_delivered_all / total_orders_all * 100), 2) if total_orders_all > 0 else 0
-                return_rate = round((total_returns_all / total_orders_all * 100), 2) if total_orders_all > 0 else 0
-                
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("إجمالي الأوردرات لكل المنتجات", total_orders_all)
-                with col2:
-                    st.metric("إجمالي تم التسليم لكل المنتجات", total_delivered_all)
-                with col3:
-                    st.metric("إجمالي المرتجع لكل المنتجات", total_returns_all)
-                with col4:
-                    st.metric("نسبة المرتجع من الإجمالي", f"{return_rate}%")
-            else:
-                st.error("❌ مش لاقي الأعمدة المطلوبة في الملف!")
-                st.info(f"الأعمدة الموجودة: {', '.join(merged_df.columns.tolist())}")
-
-# ==================== الصفحة السادسة ====================
-elif page == "👥 إجمالي نسب الأوردرات":
-    st.header("👥 إجمالي نسب الأوردرات")
-    st.markdown("ارفع الملف علشان تشوف كل موظف: إجمالي، تم التسليم، مرتجع 🔥")
-    
-    uploaded_file = st.file_uploader("📤 ارفع ملف Excel", type=["xlsx"], key="moderators_report_file")
-    
-    if uploaded_file:
-        xls = pd.read_excel(uploaded_file, sheet_name=None, engine="openpyxl", dtype=str)
-        
-        all_frames = []
-        for _, df in xls.items():
-            df = df.dropna(how="all")
-            all_frames.append(df)
-        
-        if all_frames:
-            merged_df = pd.concat(all_frames, ignore_index=True, sort=False)
-            merged_df = replace_muaaqal_with_confirm_safe(merged_df)
-            merged_df = clean_and_fill_data(merged_df)
-            
-            employee_col = None
-            order_col = None
-            status_col = None
-            
-            for col in merged_df.columns:
-                if 'موظف' in str(col) and 'مجموعة' in str(col):
-                    employee_col = col
-                elif 'كود' in str(col) and 'اوردر' in str(col).lower():
-                    order_col = col
-                elif 'حالة' in str(col) and 'اوردر' in str(col).lower():
-                    status_col = col
-            
-            if employee_col and order_col and status_col:
-                df_clean = merged_df[[order_col, employee_col, status_col]].copy()
-                df_clean = df_clean.dropna(subset=[employee_col, order_col, status_col])
-                df_clean[order_col] = df_clean[order_col].astype(str).str.strip()
-                df_clean[employee_col] = df_clean[employee_col].astype(str).str.strip()
-                df_clean[status_col] = df_clean[status_col].astype(str).str.strip()
-                
-                df_clean = df_clean.drop_duplicates(subset=[order_col])
-                
-                report_data = []
-                for employee in df_clean[employee_col].unique():
-                    employee_orders = df_clean[df_clean[employee_col] == employee]
-                    
-                    total = len(employee_orders)
-                    delivered = len(employee_orders[employee_orders[status_col] == 'تم التسليم'])
-                    returned = len(employee_orders[employee_orders[status_col] == 'مرتجع'])
-                    
-                    report_data.append({
-                        'اسم الموظف': employee,
-                        'إجمالي الأوردرات': total,
-                        'تم التسليم': delivered,
-                        'إجمالي المرتجع': returned,
-                        'نسبة التسليم %': round((delivered / total * 100), 2) if total > 0 else 0
-                    })
-                
-                report_df = pd.DataFrame(report_data)
-                report_df = report_df.sort_values('إجمالي الأوردرات', ascending=False)
-                
-                total_all = report_df['إجمالي الأوردرات'].sum()
-                delivered_all = report_df['تم التسليم'].sum()
-                returned_all = report_df['إجمالي المرتجع'].sum()
-                
-                total_row = pd.DataFrame([{
-                    'اسم الموظف': '📊 الإجمالي الكلي',
-                    'إجمالي الأوردرات': total_all,
-                    'تم التسليم': delivered_all,
-                    'إجمالي المرتجع': returned_all,
-                    'نسبة التسليم %': round((delivered_all / total_all * 100), 2) if total_all > 0 else 0
-                }])
-                
-                report_df = pd.concat([report_df, total_row], ignore_index=True)
-                
-                st.success(f"✅ تم تحليل {len(report_df)-1} موظف")
-                st.dataframe(report_df, use_container_width=True, hide_index=True)
-                
-                buffer = BytesIO()
-                report_df.to_excel(buffer, sheet_name='إجمالي نسب الأوردرات', index=False, engine='openpyxl')
-                buffer.seek(0)
-                
-                tz = pytz.timezone('Africa/Cairo')
-                today = datetime.datetime.now(tz).strftime("%Y-%m-%d")
-                file_name = f"إجمالي نسب الأوردرات - {today}.xlsx"
-                
-                st.download_button(
-                    label="📥 تحميل تقرير الموظفين",
-                    data=buffer.getvalue(),
-                    file_name=file_name,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-                
-                st.divider()
-                st.subheader("🏆 الإحصائيات الكلية")
-                
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("إجمالي الأوردرات", total_all)
-                with col2:
-                    st.metric("تم التسليم", delivered_all)
-                with col3:
-                    st.metric("إجمالي المرتجع", returned_all)
-                with col4:
-                    success_rate = round((delivered_all / total_all * 100), 2) if total_all > 0 else 0
-                    st.metric("نسبة النجاح", f"{success_rate}%")
-            else:
-                st.error("❌ مش لاقي الأعمدة المطلوبة في الملف!")
-                st.info(f"الأعمدة الموجودة: {', '.join(merged_df.columns.tolist())}")
-
-# ==================== الصفحة السابعة ====================
-elif page == "🎯 تقرير الاعلانات":
-    st.header("🎯 تقرير الاعلانات")
-    st.markdown("---")
-    
-    if st.session_state.current_step == 'upload':
-        st.subheader("📁 رفع ملفات الإعلانات (Facebook, TikTok, ...)")
-        campaigns_files = st.file_uploader(
-            "ارفع ملفات الإعلانات (يمكن أكثر من ملف)",
-            type=["xlsx", "xls"],
-            accept_multiple_files=True,
-            key="campaigns"
-        )
-
-        st.subheader("📦 رفع ملفات المنتجات (شيت واحد أو أكثر)")
-        products_files = st.file_uploader(
-            "ارفع ملفات المنتجات",
-            type=["xlsx", "xls"],
-            accept_multiple_files=True,
-            key="products"
-        )
-
-        st.markdown("<p style='text-align: center; color: gray; font-size: 12px; font-weight: bold;'><br><br>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
-        st.markdown("---")
-
-        if campaigns_files and products_files and st.button("🚀 ابدأ المعالجة", type="primary"):
-            all_campaigns = []
-            for f in campaigns_files:
-                df = pd.read_excel(f)
-                extracted = extract_campaign_data(df, f.name)
-                if extracted is not None:
-                    all_campaigns.append(extracted)
-            if not all_campaigns:
-                st.stop()
-            campaigns_df = pd.concat(all_campaigns, ignore_index=True)
-
-            all_products = []
-            for f in products_files:
-                dfp = pd.read_excel(f)
-                name_col = None
-                for col in dfp.columns:
-                    col_lower = str(col).lower()
-                    if any(k in col_lower for k in ['اسم', 'منتج', 'product', 'name', 'item']):
-                        name_col = col
-                        break
-                if name_col is None:
-                    st.error(f"❌ ملف منتجات {f.name} لا يحتوي على عمود اسم المنتج.")
-                else:
-                    dfp = dfp.rename(columns={name_col: 'اسم المنتج'})
-                    all_products.append(dfp)
-            if not all_products:
-                st.stop()
-            products_df = pd.concat(all_products, ignore_index=True)
-
-            grouped_campaigns = campaigns_df.groupby('campaign_name').agg({
-                'cost': 'sum',
-                'campaign_name_raw': lambda x: list(x.unique()),
-                'source_file': lambda x: ', '.join(x.unique()),
-                'campaign_name': 'count'
-            }).rename(columns={'campaign_name': 'ads_count'}).reset_index()
-
-            grouped_campaigns = grouped_campaigns[['campaign_name', 'cost', 'ads_count', 'campaign_name_raw', 'source_file']]
-            grouped_campaigns = grouped_campaigns.sort_values('cost', ascending=False)
-
-            products_list = products_df['اسم المنتج'].astype(str).unique().tolist()
-            auto_mapping = {}
-            similarity_threshold = 0.75
-            
-            for _, row in grouped_campaigns.iterrows():
-                campaign_name = row['campaign_name']
-                best_match = None
-                best_score = 0
-                
-                for product in products_list:
-                    similarity = SequenceMatcher(None, campaign_name.lower(), product.lower()).ratio()
-                    if similarity > best_score:
-                        best_score = similarity
-                        best_match = product
-                
-                if best_score >= similarity_threshold:
-                    auto_mapping[campaign_name] = [best_match]
-                    st.success(f"✅ ربط أوتوماتيكي: '{campaign_name}' ← '{best_match}' ({best_score:.2%})")
-
-            st.session_state.campaigns_df = campaigns_df
-            st.session_state.products_df = products_df
-            st.session_state.grouped_campaigns = grouped_campaigns
-            st.session_state.manual_mapping = auto_mapping
-            st.session_state.current_step = 'mapping'
-            st.rerun()
+                st.error("❌ مش لاقي أعمدة المنتج أو كود الأوردر في الملف!")
