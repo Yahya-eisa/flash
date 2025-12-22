@@ -99,7 +99,7 @@ def classify_city(city):
             return area
     return "Other City"
 
-def df_to_pdf_table(df, title="FLASH"):
+def df_to_pdf_table(df, title="FLASH", group_name="FLASH"):
     if "اجمالي عدد القطع في الطلب" in df.columns:
         df = df.rename(columns={"اجمالي عدد القطع في الطلب": "عدد القطع"})
 
@@ -127,12 +127,100 @@ def df_to_pdf_table(df, title="FLASH"):
                 else ("" if pd.isna(x) else str(x))
             )
 
-    styleN = ParagraphStyle(name='Normal', fontName='Arabic-Bold', fontSize=9,
-                            alignment=1, wordWrap='RTL')
-    styleBH = ParagraphStyle(name='Header', fontName='Arabic-Bold', fontSize=10,
-                             alignment=1, wordWrap='RTL')
-    styleTitle = ParagraphStyle(name='Title', fontName='Arabic-Bold', fontSize=14,
-                                alignment=1, wordWrap='RTL')
+    # تخصيص كل مجموعة
+    group_styles = {
+        "flash": {
+            "header_bg": "#FF6B6B",
+            "header_text": colors.white,
+            "header_font_size": 11,
+            "title_font_size": 16
+        },
+        "khosomaat": {
+            "header_bg": "#4ECDC4",
+            "header_text": colors.black,
+            "header_font_size": 10,
+            "title_font_size": 15
+        },
+        "mevven": {
+            "header_bg": "#FFD93D",
+            "header_text": colors.black,
+            "header_font_size": 12,
+            "title_font_size": 17
+        },
+        "dealaat": {
+            "header_bg": "#A8E6CF",
+            "header_text": colors.black,
+            "header_font_size": 10,
+            "title_font_size": 14
+        },
+        "souq": {
+            "header_bg": "#FF8B94",
+            "header_text": colors.white,
+            "header_font_size": 11,
+            "title_font_size": 16
+        },
+        "kuwait mall": {
+            "header_bg": "#B4A7D6",
+            "header_text": colors.black,
+            "header_font_size": 12,
+            "title_font_size": 18
+        },
+        "mini": {
+            "header_bg": "#FFA07A",
+            "header_text": colors.black,
+            "header_font_size": 9,
+            "title_font_size": 13
+        },
+        "outlet": {
+            "header_bg": "#20B2AA",
+            "header_text": colors.white,
+            "header_font_size": 10,
+            "title_font_size": 15
+        },
+        "trend": {
+            "header_bg": "#DA70D6",
+            "header_text": colors.white,
+            "header_font_size": 11,
+            "title_font_size": 16
+        },
+        "other": {
+            "header_bg": "#95A5A6",
+            "header_text": colors.white,
+            "header_font_size": 10,
+            "title_font_size": 14
+        }
+    }
+    
+    group_key = group_name.lower().strip()
+    style_config = group_styles.get(group_key, group_styles["other"])
+
+    # التعديل المهم: تغيير wordWrap وإضافة leading
+    styleN = ParagraphStyle(
+        name='Normal', 
+        fontName='Arabic-Bold', 
+        fontSize=9,
+        alignment=1,
+        leading=12,
+        wordWrap='CJK'
+    )
+    
+    styleBH = ParagraphStyle(
+        name='Header', 
+        fontName='Arabic-Bold', 
+        fontSize=style_config["header_font_size"],
+        alignment=1,
+        leading=style_config["header_font_size"] + 2,
+        wordWrap='CJK'
+    )
+    
+    styleTitle = ParagraphStyle(
+        name='Title', 
+        fontName='Arabic-Bold', 
+        fontSize=style_config["title_font_size"],
+        alignment=1,
+        leading=style_config["title_font_size"] + 4,
+        wordWrap='CJK'
+    )
 
     data = []
     data.append([Paragraph(fix_arabic(col), styleBH) for col in df.columns])
@@ -145,7 +233,7 @@ def df_to_pdf_table(df, title="FLASH"):
 
     tz = pytz.timezone('Africa/Cairo')
     today = datetime.datetime.now(tz).strftime("%Y-%m-%d")
-    title_text = f"{title} | FLASH | {today}"
+    title_text = f"{title} | {group_name.upper()} | {today}"
 
     elements = [
         Paragraph(fix_arabic(title_text), styleTitle),
@@ -154,8 +242,8 @@ def df_to_pdf_table(df, title="FLASH"):
 
     table = Table(data, colWidths=col_widths[:len(df.columns)], repeatRows=1)
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#64B5F6")),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(style_config["header_bg"])),
+        ('TEXTCOLOR', (0, 0), (-1, 0), style_config["header_text"]),
         ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -421,8 +509,6 @@ elif page == "🚚 ECOMERG Orders Processor":
         help="اختر المجموعة المناسبة من القائمة"
     )
     
-    
-    
     uploaded_files = st.file_uploader(
         "Upload Excel files (.xlsx)",
         accept_multiple_files=True,
@@ -492,7 +578,6 @@ elif page == "🚚 ECOMERG Orders Processor":
                 file_name=file_name,
                 mime="application/pdf"
             )
-
 
 # ==================== الصفحة الرابعة ====================
 elif page == "📊 عدد الأوردرات لكل منتج":
@@ -791,8 +876,6 @@ elif page == "👥 إجمالي نسب الأوردرات":
 elif page == "🎯 تقرير الاعلانات":
     st.header("🎯 تقرير الاعلانات")
     st.markdown("---")
- 
-
     
     if st.session_state.current_step == 'upload':
         st.subheader("📁 رفع ملفات الإعلانات (Facebook, TikTok, ...)")
@@ -811,13 +894,9 @@ elif page == "🎯 تقرير الاعلانات":
             key="products"
         )
 
-        # إضافة الاسم في الأسفل 
         st.markdown("<p style='text-align: center; color: gray; font-size: 12px; font-weight: bold;'><br><br>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
         st.markdown("---")
 
-
-
-        
         if campaigns_files and products_files and st.button("🚀 ابدأ المعالجة", type="primary"):
             all_campaigns = []
             for f in campaigns_files:
@@ -874,237 +953,11 @@ elif page == "🎯 تقرير الاعلانات":
                 
                 if best_score >= similarity_threshold:
                     auto_mapping[campaign_name] = [best_match]
-                    st.success(f"✅ ربط أوتوماتيكي: '{campaign_name}' ← '{best_match}' ({best_score*100:.1f}%)")
-                else:
-                    auto_mapping[campaign_name] = []
-            
+                    st.success(f"✅ ربط أوتوماتيكي: '{campaign_name}' ← '{best_match}' ({best_score:.2%})")
+
             st.session_state.campaigns_df = campaigns_df
             st.session_state.products_df = products_df
             st.session_state.grouped_campaigns = grouped_campaigns
             st.session_state.manual_mapping = auto_mapping
-            st.session_state.current_step = 'manual_match'
+            st.session_state.current_step = 'mapping'
             st.rerun()
-
-    elif st.session_state.current_step == 'manual_match':
-        st.subheader("🔍 مطابقة الحملات مع المنتجات")
-
-        grouped = st.session_state.grouped_campaigns.copy()
-        products_df = st.session_state.products_df
-        products_list = products_df['اسم المنتج'].astype(str).tolist()
-
-        campaigns_need_review = grouped[grouped['campaign_name'].apply(
-            lambda x: len(st.session_state.manual_mapping.get(x, [])) == 0
-        )]
-        
-        if campaigns_need_review.empty:
-            st.success("🎉 تم ربط كل الحملات أوتوماتيكياً! لا توجد حملات تحتاج مراجعة يدوية.")
-            if st.button("📊 عرض التقرير النهائي", type="primary"):
-                st.session_state.current_step = 'final'
-                st.rerun()
-        else:
-            st.info(f"📋 عدد الحملات المربوطة أوتوماتيكياً: {len(grouped) - len(campaigns_need_review)}")
-            st.warning(f"⚠️ عدد الحملات تحتاج مراجعة يدوية: {len(campaigns_need_review)}")
-            
-            with st.form("manual_match_form"):
-                for idx, (i, row) in enumerate(campaigns_need_review.iterrows(), 1):
-                    st.markdown(f"### {idx}. اسم الحملة:")
-                    st.code(row['campaign_name'])
-                    st.write(f"💰 الصرف: {row['cost']:.2f} | 📊 إعلانات: {row['ads_count']}")
-
-                    col1, col2 = st.columns([2, 1])
-                    with col1:
-                        selected_products = st.multiselect(
-                            "اختر المنتجات:",
-                            options=products_list,
-                            key=f"products_{i}"
-                        )
-                    with col2:
-                        no_result = st.checkbox(
-                            "لا توجد اوردرات",
-                            key=f"nores_{i}"
-                        )
-
-                    if no_result:
-                        st.session_state.manual_mapping[row['campaign_name']] = [NO_RESULT_LABEL]
-                    else:
-                        st.session_state.manual_mapping[row['campaign_name']] = selected_products
-
-                    st.markdown("---")
-
-                submitted = st.form_submit_button("✅ تأكيد", type="primary")
-
-            if submitted:
-                st.session_state.current_step = 'final'
-                st.rerun()
-
-    elif st.session_state.current_step == 'final':
-        st.subheader("📊 التقرير النهائي الكامل")
-
-        grouped = st.session_state.grouped_campaigns.copy()
-        products_df = st.session_state.products_df
-        manual_mapping = st.session_state.manual_mapping
-
-        grouped['قائمة المنتجات'] = grouped['campaign_name'].map(manual_mapping)
-
-        def is_no_result(lst):
-            return isinstance(lst, list) and len(lst) == 1 and lst[0] == NO_RESULT_LABEL
-
-        campaigns_no_result = grouped[grouped['قائمة المنتجات'].apply(is_no_result)].copy()
-        campaigns_with_products = grouped[~grouped['قائمة المنتجات'].apply(is_no_result)].copy()
-
-        # ========== بناء التقرير الكامل لكل منتج ==========
-        st.subheader("📦 التقرير الشامل: حملات + منتجات + أداء")
-
-        if campaigns_with_products.empty:
-            st.warning("لا توجد حملات مرتبطة بمنتجات.")
-            final_report = pd.DataFrame()
-        else:
-            # التأكد من وجود الأعمدة المطلوبة في ملف المنتجات
-            required_cols = ['اسم المنتج', 'إجمالي الأوردرات', 'تم التسليم', 'إجمالي المرتجع']
-            for col in required_cols:
-                if col not in products_df.columns:
-                    st.warning(f"⚠️ عمود '{col}' غير موجود في ملف المنتجات. سيتم وضع قيمة 0.")
-                    products_df[col] = 0
-
-            # بناء التقرير الكامل - دمج الحملات لنفس المنتج + حفظ أسماء الحملات
-            report_rows = []
-            product_campaigns = {}  # لحفظ أسماء الحملات لكل منتج
-
-            for _, campaign_row in campaigns_with_products.iterrows():
-                campaign_name = campaign_row['campaign_name']
-                campaign_cost = campaign_row['cost']
-                campaign_ads_count = campaign_row['ads_count']
-                products_list = campaign_row['قائمة المنتجات']
-                
-                if isinstance(products_list, list) and len(products_list) > 0:
-                    for product_name in products_list:
-                        # حفظ اسم الحملة لكل منتج
-                        if product_name not in product_campaigns:
-                            product_campaigns[product_name] = []
-                        product_campaigns[product_name].append(campaign_name)
-                        
-                        # البحث عن بيانات المنتج
-                        product_data = products_df[products_df['اسم المنتج'] == product_name]
-                        
-                        if not product_data.empty:
-                            product_row = product_data.iloc[0]
-                            total_orders = int(product_row.get('إجمالي الأوردرات', 0))
-                            delivered_orders = int(product_row.get('تم التسليم', 0))
-                            returned_orders = int(product_row.get('إجمالي المرتجع', 0))
-                        else:
-                            total_orders = 0
-                            delivered_orders = 0
-                            returned_orders = 0
-                        
-                        report_rows.append({
-                            'اسم المنتج': product_name,
-                            'إجمالي الصرف': campaign_cost,
-                            'عدد الإعلانات': campaign_ads_count,
-                            'إجمالي الأوردرات': total_orders,
-                            'تم التسليم': delivered_orders,
-                            'المرتجع': returned_orders
-                        })
-            
-            if report_rows:
-                # تحويل لـ DataFrame
-                temp_df = pd.DataFrame(report_rows)
-                
-                # دمج الحملات لنفس المنتج (جمع الصرف والإعلانات)
-                final_report = temp_df.groupby('اسم المنتج', as_index=False).agg({
-                    'إجمالي الصرف': 'sum',
-                    'عدد الإعلانات': 'sum',
-                    'إجمالي الأوردرات': 'first',  # بيانات المنتج ثابتة
-                    'تم التسليم': 'first',
-                    'المرتجع': 'first'
-                })
-                
-                # إضافة عمود أسماء الحملات
-                final_report['اسماء الحملات'] = final_report['اسم المنتج'].map(
-                    lambda product: ' | '.join(product_campaigns.get(product, []))
-                )
-                
-                # حساب سعر الأوردر بعد الدمج
-                final_report['سعر الأوردر المسلم'] = final_report.apply(
-                    lambda row: round(row['إجمالي الصرف'] / row['تم التسليم'], 2) 
-                    if row['تم التسليم'] > 0 else None, 
-                    axis=1
-                )
-                
-                # تدوير الأرقام
-                final_report['إجمالي الصرف'] = final_report['إجمالي الصرف'].round(2)
-                
-                # ترتيب الأعمدة المطلوب
-                final_report = final_report[[
-                    'اسم المنتج',
-                    'اسماء الحملات',
-                    'إجمالي الصرف',
-                    'عدد الإعلانات',
-                    'إجمالي الأوردرات',
-                    'تم التسليم',
-                    'المرتجع',
-                    'سعر الأوردر المسلم'
-                ]]
-                
-                # ترتيب حسب الصرف
-                final_report = final_report.sort_values('إجمالي الصرف', ascending=False)
-                
-                st.success(f"✅ تم إنشاء تقرير شامل لـ {len(final_report)} منتج")
-                st.dataframe(final_report, use_container_width=True, height=400)
-            else:
-                final_report = pd.DataFrame()
-                st.warning("لم يتم العثور على بيانات كافية لإنشاء التقرير.")
-
-        # ========== عرض الحملات العامة (بدون منتجات) ==========
-        if not campaigns_no_result.empty:
-            st.divider()
-            st.subheader("⚠️ حملات لا توجد لها اوردرات")
-            df_no_res = campaigns_no_result[['campaign_name', 'cost', 'ads_count']].copy()
-            df_no_res.rename(columns={
-                'campaign_name': 'اسم الحملة',
-                'cost': 'إجمالي الصرف',
-                'ads_count': 'عدد الإعلانات'
-            }, inplace=True)
-            df_no_res['إجمالي الصرف'] = df_no_res['إجمالي الصرف'].round(2)
-            st.dataframe(df_no_res, use_container_width=True, height=250)
-        else:
-            df_no_res = pd.DataFrame()
-
-        # ========== تحميل التقرير الكامل ==========
-        st.divider()
-        buf = io.BytesIO()
-        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            if not final_report.empty:
-                final_report.to_excel(writer, index=False, sheet_name="التقرير الشامل")
-            if not df_no_res.empty:
-                df_no_res.to_excel(writer, index=False, sheet_name="لا توجد اوردرات")
-
-        tz = pytz.timezone('Africa/Cairo')
-        today = datetime.datetime.now(tz).strftime("%Y-%m-%d")
-        file_name = f"تقرير_الاعلانات_الشامل_{today}.xlsx"
-
-        st.download_button(
-            "⬇️ تحميل التقرير الشامل (Excel)",
-            data=buf.getvalue(),
-            file_name=file_name,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            type="primary"
-        )
-
-       
-        st.markdown("---")
-        if st.button("🔄 البدء من جديد"):
-            st.session_state.clear()
-            st.rerun()
-
-     # إضافة الاسم في الأسفل
-        st.markdown("---")
-        st.markdown("<p style='text-align: center; color: gray;'>Developed by Yahya Eissa</p>", unsafe_allow_html=True)
-
-
-
-
-
-
-
-
-
