@@ -19,7 +19,35 @@ from difflib import SequenceMatcher
 def fix_arabic(text):
     if pd.isna(text):
         return ""
-    reshaped = arabic_reshaper.reshape(str(text))
+    text_str = str(text).strip()
+    
+    # تقسيم النص يدوياً كل 35 حرف (حسب عرض العمود)
+    max_chars_per_line = 35
+    
+    if len(text_str) > max_chars_per_line:
+        # تقسيم النص لسطور
+        lines = []
+        words = text_str.split(' ')
+        current_line = ""
+        
+        for word in words:
+            if len(current_line + " " + word) <= max_chars_per_line:
+                current_line += (" " + word if current_line else word)
+            else:
+                if current_line:
+                    lines.append(current_line)
+                current_line = word
+        
+        if current_line:
+            lines.append(current_line)
+        
+        # عكس ترتيب السطور (الأخير يبقى الأول)
+        lines.reverse()
+        
+        # دمج السطور
+        text_str = '\n'.join(lines)
+    
+    reshaped = arabic_reshaper.reshape(text_str)
     return get_display(reshaped)
 
 def fill_down(series):
