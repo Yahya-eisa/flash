@@ -49,10 +49,16 @@ def reverse_arabic_lines_in_cell(text, max_chars=35):
         
         # اعكس ترتيب السطور (الأخير يبقى الأول)
         lines.reverse()
-        text_str = '\n'.join(lines)
-    
-    reshaped = arabic_reshaper.reshape(text_str)
-    return get_display(reshaped)
+        
+        # طبّق fix_arabic على كل سطر لوحده
+        fixed_lines = [arabic_reshaper.reshape(line) for line in lines]
+        fixed_lines = [get_display(line) for line in fixed_lines]
+        
+        return '\n'.join(fixed_lines)
+    else:
+        # للنصوص القصيرة استخدم fix_arabic العادي
+        reshaped = arabic_reshaper.reshape(text_str)
+        return get_display(reshaped)
 
 def fill_down(series):
     return series.ffill()
